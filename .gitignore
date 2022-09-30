@@ -1,0 +1,9 @@
+*.pyc
+config*.txt
+
+
+# vim, mac os
+*.sw*
+.DS_Store
+.*.un~
+.idea
