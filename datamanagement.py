@@ -110,7 +110,7 @@ class Sftp:
             raise Exception(err)            
         
 
-configfile = r'C:\projecten\rws\2022\extensometer\config.txt'
+configfile = r'D:\projecten\datamanagement\Nederland\BodembewegingNL\tools\config.txt'
 cf = configparser.ConfigParser() 
 cf.read(configfile)      
 
@@ -125,13 +125,22 @@ sftp = Sftp(
 sftp.connect()
 
 # list items
-rmpath = './cabauw'
-lpath = r'D:\temp\bodembewegingen\etrack\cabouw'
+lstdir = ['cabauw','bleskensgraaf','berkenwoude']
+lpath = 'D:\\temp\\bodembewegingen\\etrack\\'
 
 #sftp.download(rmpath,lpath)
-sftp.listdir_attr(rmpath)
-for i in sftp.listdir_attr(rmpath):
-    print(i)
-    
+for dir in lstdir:
+    rmpath = './{rm}/'.format(rm=dir)
+    sftp.listdir_attr(rmpath)
+    for i in sftp.listdir_attr(rmpath):
+        sftp.download(rmpath+i.filename,lpath+'\\{rm}\\'.format(rm=dir)+i.filename)
+        # hier moet een stuk komen die de file upload naar de database
+        # meest handig is een functie die de file oppakt
+        # rekening houden met location, serieskeys
+        
+        # na succsevol inladen in de database data naar de p verplaatsen
+        # na succesvol inladen in de database data van de ftp verwijderen
+
+
 #close the connection to SFTP
 sftp.disconnect()
