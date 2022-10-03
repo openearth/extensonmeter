@@ -39,6 +39,10 @@ import configparser
 from urllib.parse import urlparse
 import os
 
+#load local procedures to write to db
+from loaddataintodatamodel import metadata_location, timeseries_todb
+from ts_helpders import establishconnection, read_config, loadfilesource,location,sparameter,sserieskey,sflag,dateto_integer,convertlttodate, stimestep
+
 
 class Sftp:
     def __init__(self, hostname, username, password, port=22):
@@ -110,7 +114,8 @@ class Sftp:
             raise Exception(err)            
         
 
-configfile = r'D:\projecten\datamanagement\Nederland\BodembewegingNL\tools\config.txt'
+#configfile = r'D:\projecten\datamanagement\Nederland\BodembewegingNL\tools\config.txt'
+configfile = r'C:\projecten\rws\2022\extensometer\config.txt'
 cf = configparser.ConfigParser() 
 cf.read(configfile)      
 
@@ -120,24 +125,30 @@ sftp = Sftp(
         password=cf.get('FTP','password'),
         port=cf.get('FTP','port'),
     )
-
+    
+    
 # Connect to SFTP
 sftp.connect()
 
 # list items
 lstdir = ['cabauw','bleskensgraaf','berkenwoude']
-lpath = 'D:\\temp\\bodembewegingen\\etrack\\'
+lpath = 'C:\\projecten\\rws\\2022\\extensometer\\data\\'
+
+metadata=metadata_location()
 
 #sftp.download(rmpath,lpath)
 for dir in lstdir:
     rmpath = './{rm}/'.format(rm=dir)
     sftp.listdir_attr(rmpath)
     for i in sftp.listdir_attr(rmpath):
-        sftp.download(rmpath+i.filename,lpath+'\\{rm}\\'.format(rm=dir)+i.filename)
+        filepath=(lpath+'\\{rm}\\').format(rm=dir)+i.filename
+        print(filepath, metadata, dir)
+        sftp.download(rmpath+i.filename,filepath)
+
         # hier moet een stuk komen die de file upload naar de database
         # meest handig is een functie die de file oppakt
-        # rekening houden met location, serieskeys
-        
+        # rekening houden met location, serieskeys, input is lstdir voor de name en de file wat in de db moet komen
+        #timeseries_todb(file, metadata, dir)
         # na succsevol inladen in de database data naar de p verplaatsen
         # na succesvol inladen in de database data van de ftp verwijderen
 
