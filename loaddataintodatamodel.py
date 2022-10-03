@@ -49,10 +49,10 @@ from orm_timeseries import Base,FileSource,Location,Parameter,Unit,TimeSeries,Ti
 from ts_helpders import establishconnection, read_config, loadfilesource,location,sparameter,sserieskey,sflag,dateto_integer,convertlttodate, stimestep
 
 #functions to use to import from ftp box
-from datamanagement import connect, disconnect, listdir, listdir_attr, download
+from datamanagement import Sftp
 
-# data is stored in PostgreSQL/PostGIS database. A connection string is needed to interact with the database. This is typically stored in
-# a file.
+# ------------------------config. making connection to ftp and databases
+# TODO integrate neatly
 local = True
 if local:
     fc = r"C:\projecten\rws\2022\extensometer\data\connection_local.txt"
@@ -61,17 +61,40 @@ else:
     fc = os.path.join(dirname,'aconnection.txt')
 session,engine = establishconnection(fc)
 
-"""
-Stepwise before inserting big chunk of observations:
-    1. filesource administration
-    2. add paramater and unit
-    3. add location
-    4. create unique tsserieskey
-    5. add chunk of timeseries data
-"""
-#---------------Automatisch ophalen van de ftp server
-# TODO stuk halen die data ophaalt van de ftp box
-connect
+configfile = r'C:\projecten\rws\2022\extensometer\config.txt'
+cf = configparser.ConfigParser() 
+cf.read(configfile)      
+
+sftp = Sftp(
+        hostname=cf.get('FTP','url'),
+        username=cf.get('FTP','user'),
+        password=cf.get('FTP','password'),
+        port=cf.get('FTP','port'),
+    )
+
+#----------------Automatisch ophalen van de ftp box en wegschrijven op locaties in de p-schijf
+#TODO uitwerken logische structuur op p schijf
+
+# TEST
+#data ophalen van 4 plekken, zijn verschillende mapjes in de ftp
+rmpath = ['./cabauw','./berkenwoude', '/.bleskensgraaf','./hazerswoude']
+
+# Connect to SFTP
+sftp.connect()
+
+#test data ophalen
+
+#for i in sftp.listdir_attr(rmpath[0]):
+    #print(i)
+
+# test data download
+
+lpath = r'C:\projecten\rws\2022\extensometer\data\temp'
+
+sftp.download(rmpath,lpath)
+
+#close the connection to SFTP    
+sftp.disconnect()
 
 # ---------------administratie parameters
 # get or set parameterkey 
@@ -119,13 +142,18 @@ tstkey = stimestep(session,'def of timestep','a label')
 
 flagkey = sflag(fc,'validated data','validated by waterboard')
 
-# get or set serieskey
-# skey = sserieskey(fc, pkey, locationkey, fkey[0],timestep=tstep)
-
-#---------------Automatisch ophalen van de ftp server
-# opslaan op een locatie in de p-schijf
-# per folder in root van basis path wisselen
 # TODO make loop to fill all
+root_dir=r'C:\projecten\rws\2022\extensometer\data'
+
+# !! testing 
+def list_files(dir):
+    r = []
+    for root, dirs, files in os.walk(dir):
+        for name in files:
+            r.append(os.path.join(root, name))
+    return r
+
+t=list_files(root_dir)
 
 dir=r'C:\projecten\rws\2022\extensometer\data\berkenwoude\ElliTrack-21121601-93537417.txt'
 name='berkenwoude'
@@ -133,6 +161,7 @@ name='berkenwoude'
 # ------------------tijdseries in de database stoppen
 # fill dataframe with timeseries and add all necessary keys to the datafram
 # lees in files vanaf de p schijf die net ingelezen is 
+# niet elke keer opnieuw door de p schijf lopen maar alleen de data toevoegen die net opgehaald is van de ftp box
 locationkey= list(metadata.loc[metadata['name'] == name, 'locationkey']) #find locationkey based on matadata table #name is folder name? 
 fskey = loadfilesource(dir,fc,'timeseries')
 
