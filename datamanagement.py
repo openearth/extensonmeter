@@ -10,7 +10,8 @@ Created on Fri Sep 16 15:56:23 2022
 #   --------------------------------------------------------------------
 #   Copyright (C) 2022 Deltares
 #       Gerrit Hendriksen
-#       gerrit.hendriksen@deltares.nl
+#       gerrit.hendriksen@deltares.nl   
+#       Nathalie Dees (nathalie.dees@deltares.nl)
 #
 #   This library is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -38,9 +39,10 @@ import pysftp
 import configparser
 from urllib.parse import urlparse
 import os
+import shutil
 
 #load local procedures to write to db
-from loaddataintodatamodel import metadata_location, timeseries_todb
+from loaddataintodatamodel import metadata_location, timeseries_todb, update_location
 from ts_helpders import establishconnection, read_config, loadfilesource,location,sparameter,sserieskey,sflag,dateto_integer,convertlttodate, stimestep
 
 
@@ -111,7 +113,11 @@ class Sftp:
             print("download completed")
 
         except Exception as err:
-            raise Exception(err)            
+            raise Exception(err)   
+
+    def remove_file(self,file):
+        "removes file from ftp server according to sftp docs"
+        self.connection.remove(file)      
         
 
 #configfile = r'D:\projecten\datamanagement\Nederland\BodembewegingNL\tools\config.txt'
@@ -126,31 +132,45 @@ sftp = Sftp(
         port=cf.get('FTP','port'),
     )
     
-    
-# Connect to SFTP
-sftp.connect()
 
-# list items
+# list items + paths for input + outputs
 lstdir = ['cabauw','bleskensgraaf','berkenwoude']
 lpath = 'C:\\projecten\\rws\\2022\\extensometer\\data\\'
+ppath= 'P:\\extensometer\\peilen\\'
 
+#metadata sourcefile
+sf = r'C:\projecten\rws\2022\extensometer\metadata_test.xlsx'
+
+#updating the metadata table, if source files changes, edit this function in loaddataintodatamodel.py
+update_location(sf)
+
+#tetrieving the metadata table
 metadata=metadata_location()
 
+# Connect to SFTP
+sftp.connect()
 #sftp.download(rmpath,lpath)
 for dir in lstdir:
-    rmpath = './{rm}/'.format(rm=dir)
+    rmpath = './{rm}/'.format(rm=dir) #remote path is link to the sftp and name of the folder 
     sftp.listdir_attr(rmpath)
     for i in sftp.listdir_attr(rmpath):
-        filepath=(lpath+'\\{rm}\\').format(rm=dir)+i.filename
-        print(filepath, metadata, dir)
-        sftp.download(rmpath+i.filename,filepath)
+        filepath=(lpath+'\\{rm}\\').format(rm=dir)+i.filename #assigning the right filename to file
+        sftp.download(rmpath+i.filename,filepath) #download from ftp to local location
 
         # hier moet een stuk komen die de file upload naar de database
-        # meest handig is een functie die de file oppakt
         # rekening houden met location, serieskeys, input is lstdir voor de name en de file wat in de db moet komen
-        #timeseries_todb(file, metadata, dir)
-        # na succsevol inladen in de database data naar de p verplaatsen
+
+        timeseries_todb(filepath, metadata, dir) #put in db
+
+        # if dir does not exist in root then make dir
+        if not os.path.exists(ppath+dir):
+            os.mkdir(ppath+dir)
+
+        #na succsevol inladen in de database data naar de p verplaatsen,
+        shutil.move(filepath, (os.path.join(ppath,dir)+'\\'+i.filename)) #write to p drive
+        
         # na succesvol inladen in de database data van de ftp verwijderen
+        sftp.remove_file(rmpath+i.filename) #delete from ftp
 
 
 #close the connection to SFTP

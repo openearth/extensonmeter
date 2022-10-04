@@ -73,7 +73,7 @@ def resetindex(engine,schema):
 if __name__ == "__main__":
     local = True
     if local:
-        fc = r"C:\projecten\rws\2022\extensometer\data\connection_local.txt"
+        fc = r"C:\projecten\rws\2022\extensometer\connection_local.txt"
     else:
         fc = r"D:\projecten\datamanagement\Nederland\waterkwaliteit\kinm_data\connection_kinm.txt"
     engine = readcredentials(fc)

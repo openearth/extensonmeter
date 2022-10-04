@@ -74,9 +74,6 @@ flagkey = sflag(fc,'Ellitrack data','unvalidated')
 
 #--------------ADMINISTRATIE locationtable
 # administrate file with metadata, inlezen. metadata wordt handmatig bewerkt in excel file oid
-
-sf = r'C:\projecten\rws\2022\extensometer\metadata_test.xlsx'
-
 def update_location(sf):
     """takes metadata xlsx filepath as input and updates the locations table in the database if needed.
     note: if certain things in locationtable need to be adjusted, change code in this function"""
@@ -96,7 +93,6 @@ def update_location(sf):
         df.index = np.arange(1, (lid+1)) 
     df['locationkey']=df.index
     df['filesourcekey']=fskey[0][0]
-    print('not updating location table')
 
     #if the location table is up to date, it will skip this part and not update to the database 
     if lid != df["locationkey"].iloc[-1]:
@@ -111,7 +107,7 @@ def update_location(sf):
 
 #rename location table to use later
 def metadata_location():
-    """returns locationkey and name from locationtable in database as a pandas df """
+    """does not need an input, returns locationkey and name from locationtable in database as a pandas df """
     stmt = """SELECT locationkey, name from {s}.{t};""".format(s='timeseries',t='location')
     r=engine.execute(stmt).fetchall()
     metadata=pd.DataFrame(r)
@@ -121,6 +117,10 @@ def metadata_location():
 # fill dataframe with timeseries and add all necessary keys to the datafram
 
 def timeseries_todb(file, metadata, name):
+    """ takes as input: filepath (containing a file), metadata table (containing locationkey and name) and the name of the location/folder 
+    (which is used to find the locationkey from the metadata table)
+    
+    Stores the file in the database according to the different parameters assigned in the loaddataintodb.py script"""
     locationkey= list(metadata.loc[metadata['name'] == name, 'locationkey']) #find locationkey based on matadata table #name is folder name? 
     fskey = loadfilesource(file,fc,'timeseries')
 
@@ -135,7 +135,7 @@ def timeseries_todb(file, metadata, name):
 
     #adding waterstand to db
     dfw= df[['datetime', 'Waterstand']]
-    dfw.rename(columns = {'Waterstand':'scalarvalue'}, inplace = True) #change column name
+    dfw=dfw.rename(columns = {'Waterstand':'scalarvalue'}) #change column name
     dfw['timeserieskey'] = skeygws #set series key for gws en temp
     dfw['flags' ] = flagkey
 
@@ -143,7 +143,7 @@ def timeseries_todb(file, metadata, name):
 
     #adding temperatuur water to db
     dft= df[['datetime', 'Temperatuur water']]
-    dft.rename(columns = {'Temperatuur water':'scalarvalue'}, inplace = True) #change column name
+    dft=dft.rename(columns = {'Temperatuur water':'scalarvalue'}) #change column name
     dft['timeserieskey'] = skeytempw #set series key for gws en temp
     dft['flags' ] = flagkey
 
@@ -151,7 +151,7 @@ def timeseries_todb(file, metadata, name):
 
     #adding temperatuur intern to db
     dfti= df[['datetime', 'Temperatuur intern']]
-    dfti.rename(columns = {'Temperatuur intern':'scalarvalue'}, inplace = True) #change column name
+    dfti=dfti.rename(columns = {'Temperatuur intern':'scalarvalue'}) #change column name
     dfti['timeserieskey'] = skeytempi #set series key for gws en temp
     dfti['flags' ] = flagkey
 
