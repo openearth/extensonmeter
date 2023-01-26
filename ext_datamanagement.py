@@ -157,8 +157,6 @@ for dir in lstdir:
         filepath=(lpath+'\\{rm}\\').format(rm=dir)+i.filename #assigning the right filename to file
         sftp.download(rmpath+i.filename,filepath) #download from ftp to local location
 
-        name=os.path.splitext(filepath)[0]
-
         # hier moet een stuk komen die de file upload naar de database
         # rekening houden met location, serieskeys, input is lstdir voor de name en de file wat in de db moet komen
 
