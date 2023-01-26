@@ -72,6 +72,8 @@ tstkey = stimestep(session,'1 hour','hourly data')
 
 flagkey = sflag(fc,'Ellitrack data','unvalidated')
 
+sf = r'C:\projecten\rws\2022\extensometer\metadata_test.xlsx'
+
 #--------------ADMINISTRATIE locationtable
 # administrate file with metadata, inlezen. metadata wordt handmatig bewerkt in excel file oid
 def update_location(sf):

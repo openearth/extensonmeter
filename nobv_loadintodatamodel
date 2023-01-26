@@ -32,6 +32,7 @@ Created on Tue Jul 19 12:05:14 2022
 # your own tools.
 
 """
+# %%
 import os
 import pandas as pd
 import requests
@@ -40,6 +41,11 @@ from datetime import datetime
 import configparser
 import numpy as np
 
+# setup connection with sftp box
+import pysftp
+from urllib.parse import urlparse
+import shutil
+
 # third party packages
 from sqlalchemy.sql.expression import update
 from sqlalchemy import exc,func
@@ -47,15 +53,180 @@ from sqlalchemy import exc,func
 # local procedures
 from orm_timeseries import Base,FileSource,Location,Parameter,Unit,TimeSeries,TimeSeriesValuesAndFlags,Flags
 from ts_helpders import establishconnection, read_config, loadfilesource,location,sparameter,sserieskey,sflag,dateto_integer,convertlttodate, stimestep
+#from ext_datamanagement import Sftp #this does not work
+from ext_loaddataintodatamodel import metadata_location
 
-#functions to use to import from ftp box
-
+"""Still testing this code!"""
 # ------------------------config. making connection to ftp and databases
 # TODO integrate neatly
 local = True
 if local:
-    fc = r"C:\projecten\rws\2022\extensometer\connection_local.txt"
+    fc = r"C:\projecten\nobv\2023\connection_local.txt"
 else:
     dirname =  os.path.dirname(__file__)
     fc = os.path.join(dirname,'aconnection.txt')
 session,engine = establishconnection(fc)
+#%%
+# ---------------administratie parameters
+# get or set parameterkey 
+pkeygws = sparameter(fc,'cm','Grondwaterstand',['cm-NAP', 'centimeter tov NAP'],'Grondwaterstand')
+pkeytempw = sparameter(fc,'Tw','Temperatuur water',['Celcius','Celcius'],'Temperatuur water')
+pkeytempi = sparameter(fc,'Ti','Temperatuur intern',['Celcius','Celcius'],'Temperatuur intern')
+
+# ----------administre timestepkey and flags
+# TODO dit netjes maken
+tstkey = stimestep(session,'1 hour','hourly data')
+
+flagkey = sflag(fc,'Ellitrack data','unvalidated')
+
+# %%
+#--------------ADMINISTRATIE locationtable
+# administrate file with metadata
+sf = r'N:\Projects\11209000\11209005\B. Measurements and calculations\metadata\overzicht_nobv_type1.xlsx'
+#sf=r'C:\projecten\grondwater_monitoring\ijmuiden\data\peilbuizen_metadata.xlsx'
+fskey = loadfilesource(sf,fc,'metadata')
+df = pd.read_excel(sf)
+df = df.set_axis(['name','diverid','description','x','y','tubetop','tubebot','altitude_msl','distance_w','distance_p', 'registered'], axis=1)
+df = df.drop(columns=['distance_w','distance_p', 'registered'])
+df['epsgcode'] = 28992
+df['diverid'] = df['diverid'].astype('Int64') #convert to Int64 to set data type as int array which can contain null values
+# %%
+#find location or add to location table
+# before inserting, get latest id
+stmt = """SELECT max(locationkey) from {s}.{t};""".format(s='timeseries',t='location')
+r = engine.execute(stmt).fetchall()[0][0]
+if r is None:
+    lid = 1
+    df.index += lid  
+else:
+    lid = r
+    df.index = np.arange(1, (lid+1)) 
+df['locationkey']=df.index
+df['filesourcekey']=fskey[0][0]
+
+#if the location table is up to date, it will skip this part. 
+if lid != df["locationkey"].iloc[-1]:
+    # store the metadata in the database
+    df.to_sql('location',engine,schema='timeseries',index=None,if_exists='append')
+
+    # update the table set the geometry for those records that have null as geom
+    stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='timeseries',t='location')
+    engine.execute(stmt)
+    #stmt = """select geom, locationkey, name, shortname, filterid, filterdepth, tubetop, tubebot from {s}.{t} """.format(s='timeseries',t='location')
+
+# %%
+#READ FROM SFTP BOX
+
+class Sftp:
+    def __init__(self, hostname, username, password, port=22):
+        """Constructor Method"""
+        # Set connection object to None (initial value)
+        self.connection = None
+        self.hostname = hostname
+        self.username = username
+        self.password = password
+        self.port = int(port)
+
+    def connect(self):
+        """Connects to the sftp server and returns the sftp connection object"""
+        cnopts = pysftp.CnOpts()
+        cnopts.hostkeys = None
+        try:
+            # Get the sftp connection object
+            self.connection = pysftp.Connection(
+                host=self.hostname,
+                username=self.username,
+                password=self.password,
+                port=self.port, cnopts = cnopts
+            )
+        except Exception as err:
+            raise Exception(err)
+        finally:
+            print(f"Connected to {self.hostname} as {self.username}.")
+
+
+    def disconnect(self):
+        """Closes the sftp connection"""
+        self.connection.close()
+        print(f"Disconnected from host {self.hostname}")
+        
+    def listdir(self, remote_path):
+        """lists all the files and directories in the specified path and returns them"""
+        for obj in self.connection.listdir(remote_path):
+            yield obj
+
+    def listdir_attr(self, remote_path):
+        """lists all the files and directories (with their attributes) in the specified path and returns them"""
+        for attr in self.connection.listdir_attr(remote_path):
+            yield attr        
+            
+    def download(self, remote_path, target_local_path):
+        """
+        Downloads the file from remote sftp server to local.
+        Also, by default extracts the file to the specified target_local_path
+        """
+
+        try:
+            print(
+                f"downloading from {self.hostname} as {self.username} [(remote path : {remote_path});(local path: {target_local_path})]"
+            )
+
+            # Create the target directory if it does not exist
+            path, _ = os.path.split(target_local_path)
+            if not os.path.isdir(path):
+                try:
+                    os.makedirs(path)
+                except Exception as err:
+                    raise Exception(err)
+
+            # Download from remote sftp server to local
+            self.connection.get(remote_path, target_local_path)
+            print("download completed")
+
+        except Exception as err:
+            raise Exception(err)   
+
+    def remove_file(self,file):
+        "removes file from ftp server according to sftp docs"
+        self.connection.remove(file)  
+
+#configfile = r'D:\projecten\datamanagement\Nederland\BodembewegingNL\tools\config.txt'
+configfile = r'C:\projecten\rws\2022\extensometer\config.txt'
+cf = configparser.ConfigParser() 
+cf.read(configfile)      
+
+sftp = Sftp(
+        hostname=cf.get('FTP','url'),
+        username=cf.get('FTP','user'),
+        password=cf.get('FTP','password'),
+        port=cf.get('FTP','port'),
+    )
+    
+# list items + paths for input + outputs
+lstdir = ['assendelft']
+lpath = 'C:\\projecten\\rws\\2022\\extensometer\\data'
+
+stmt = """SELECT locationkey, diverid from {s}.{t};""".format(s='timeseries',t='location')
+r=engine.execute(stmt).fetchall()
+metadata=pd.DataFrame(r)
+
+
+#%%
+# Connect to SFTP
+sftp.connect()
+
+#sftp.download(rmpath,lpath)
+for dir in lstdir:
+    rmpath = './{rm}/'.format(rm=dir) #remote path is link to the sftp and name of the folder 
+    sftp.listdir_attr(rmpath)
+    for i in sftp.listdir_attr(rmpath):
+        filepath=(lpath+'\\{rm}\\').format(rm=dir)+i.filename #assigning the right filename to file
+        sftp.download(rmpath+i.filename,filepath) #download from ftp to local location
+
+        name=int(i.filename.split('-')[1])
+        locationkey= list(metadata.loc[metadata['diverid'] == name, 'locationkey']) #find locationkey based on matadata table #name is folder name? 
+#fskey = loadfilesource(file,fc,'timeseries')
+
+#df=pd.read_csv(file, sep="\t")
+
+# %%
