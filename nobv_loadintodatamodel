@@ -53,8 +53,9 @@ from sqlalchemy import exc,func
 # local procedures
 from orm_timeseries import Base,FileSource,Location,Parameter,Unit,TimeSeries,TimeSeriesValuesAndFlags,Flags
 from ts_helpders import establishconnection, read_config, loadfilesource,location,sparameter,sserieskey,sflag,dateto_integer,convertlttodate, stimestep
-#from ext_datamanagement import Sftp #this does not work
-from ext_loaddataintodatamodel import metadata_location
+
+#from ext_loaddataintodatamodel import metadata_location
+from sftp_tools import Sftp
 
 """Still testing this code!"""
 # ------------------------config. making connection to ftp and databases
@@ -116,80 +117,6 @@ if lid != df["locationkey"].iloc[-1]:
 
 # %%
 #READ FROM SFTP BOX
-
-class Sftp:
-    def __init__(self, hostname, username, password, port=22):
-        """Constructor Method"""
-        # Set connection object to None (initial value)
-        self.connection = None
-        self.hostname = hostname
-        self.username = username
-        self.password = password
-        self.port = int(port)
-
-    def connect(self):
-        """Connects to the sftp server and returns the sftp connection object"""
-        cnopts = pysftp.CnOpts()
-        cnopts.hostkeys = None
-        try:
-            # Get the sftp connection object
-            self.connection = pysftp.Connection(
-                host=self.hostname,
-                username=self.username,
-                password=self.password,
-                port=self.port, cnopts = cnopts
-            )
-        except Exception as err:
-            raise Exception(err)
-        finally:
-            print(f"Connected to {self.hostname} as {self.username}.")
-
-
-    def disconnect(self):
-        """Closes the sftp connection"""
-        self.connection.close()
-        print(f"Disconnected from host {self.hostname}")
-        
-    def listdir(self, remote_path):
-        """lists all the files and directories in the specified path and returns them"""
-        for obj in self.connection.listdir(remote_path):
-            yield obj
-
-    def listdir_attr(self, remote_path):
-        """lists all the files and directories (with their attributes) in the specified path and returns them"""
-        for attr in self.connection.listdir_attr(remote_path):
-            yield attr        
-            
-    def download(self, remote_path, target_local_path):
-        """
-        Downloads the file from remote sftp server to local.
-        Also, by default extracts the file to the specified target_local_path
-        """
-
-        try:
-            print(
-                f"downloading from {self.hostname} as {self.username} [(remote path : {remote_path});(local path: {target_local_path})]"
-            )
-
-            # Create the target directory if it does not exist
-            path, _ = os.path.split(target_local_path)
-            if not os.path.isdir(path):
-                try:
-                    os.makedirs(path)
-                except Exception as err:
-                    raise Exception(err)
-
-            # Download from remote sftp server to local
-            self.connection.get(remote_path, target_local_path)
-            print("download completed")
-
-        except Exception as err:
-            raise Exception(err)   
-
-    def remove_file(self,file):
-        "removes file from ftp server according to sftp docs"
-        self.connection.remove(file)  
-
 #configfile = r'D:\projecten\datamanagement\Nederland\BodembewegingNL\tools\config.txt'
 configfile = r'C:\projecten\rws\2022\extensometer\config.txt'
 cf = configparser.ConfigParser() 
@@ -203,8 +130,9 @@ sftp = Sftp(
     )
     
 # list items + paths for input + outputs
-lstdir = ['assendelft']
-lpath = 'C:\\projecten\\rws\\2022\\extensometer\\data'
+lstdir = ['assendelft', 'rouveen']
+lpath = 'C:\\projecten\\nobv\\2023\\archief_lokaal'
+ppath= 'P:\\11207812-somers-uitvoering\\database_grondwater\\archief'
 
 stmt = """SELECT locationkey, diverid from {s}.{t};""".format(s='timeseries',t='location')
 r=engine.execute(stmt).fetchall()
@@ -223,10 +151,56 @@ for dir in lstdir:
         filepath=(lpath+'\\{rm}\\').format(rm=dir)+i.filename #assigning the right filename to file
         sftp.download(rmpath+i.filename,filepath) #download from ftp to local location
 
-        name=int(i.filename.split('-')[1])
+        name=i.filename.split('-')[1]
+        
         locationkey= list(metadata.loc[metadata['diverid'] == name, 'locationkey']) #find locationkey based on matadata table #name is folder name? 
-#fskey = loadfilesource(file,fc,'timeseries')
+        #print(name,locationkey)
 
-#df=pd.read_csv(file, sep="\t")
+        # if dir does not exist in root then make dir
+        if not os.path.exists(ppath+dir):
+            os.mkdir(ppath+dir)
+
+        df=pd.read_csv(filepath, sep="\t")
+
+        skeygws = sserieskey(fc, pkeygws, locationkey[0], fskey[0],timestep='nonequidistant') #pkeygws
+        skeytempw = sserieskey(fc, pkeytempw, locationkey[0], fskey[0],timestep='nonequidistant') #pkeytemp
+        skeytempi = sserieskey(fc, pkeytempi, locationkey[0], fskey[0],timestep='nonequidistant') #pkeytemp
+
+        df['Datum'] = pd.to_datetime(df['Datum']) #change to datetime format
+        df.rename(columns = {'Datum':'datetime'}, inplace = True) #change column name
+
+        #adding waterstand to db
+        dfw= df[['datetime', 'Waterstand']]
+        dfw=dfw.rename(columns = {'Waterstand':'scalarvalue'}) #change column name
+        dfw['timeserieskey'] = skeygws #set series key for gws en temp
+        dfw['flags' ] = flagkey
+
+        dfw.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='timeseries')
+
+        #adding temperatuur water to db
+        dft= df[['datetime', 'Temperatuur water']]
+        dft=dft.rename(columns = {'Temperatuur water':'scalarvalue'}) #change column name
+        dft['timeserieskey'] = skeytempw #set series key for gws en temp
+        dft['flags' ] = flagkey
+
+        dft.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='timeseries')
+
+        #adding temperatuur intern to db
+        dfti= df[['datetime', 'Temperatuur intern']]
+        dfti=dfti.rename(columns = {'Temperatuur intern':'scalarvalue'}) #change column name
+        dfti['timeserieskey'] = skeytempi #set series key for gws en temp
+        dfti['flags' ] = flagkey
+
+        dfti.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='timeseries')
+            
+        #na succsevol inladen in de database data naar de p verplaatsen,
+        #shutil.move(filepath, (os.path.join(ppath,dir)+'\\'+i.filename)) #write to p drive
+        
+        # na succesvol inladen in de database data van de ftp verwijderen
+        # sftp.remove_file(rmpath+i.filename) #delete from ftp
+
+
+#close the connection to SFTP
+sftp.disconnect()
 
 # %%

@@ -119,8 +119,8 @@ def metadata_location():
 # fill dataframe with timeseries and add all necessary keys to the datafram
 
 def timeseries_todb(file, metadata, name):
-    """ takes as input: filepath (containing a file), metadata table (containing locationkey and name) and the name of the location/folder 
-    (which is used to find the locationkey from the metadata table)
+    """ takes as input: filepath (containing a file), metadata table (containing locationkey and name) and the name of the location 
+    or location folder (which is used to find the locationkey from the metadata table)
     
     Stores the file in the database according to the different parameters assigned in the loaddataintodb.py script"""
     locationkey= list(metadata.loc[metadata['name'] == name, 'locationkey']) #find locationkey based on matadata table #name is folder name? 
