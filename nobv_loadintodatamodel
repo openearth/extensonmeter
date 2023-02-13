@@ -76,6 +76,7 @@ pkeytempi = sparameter(fc,'Ti','Temperatuur intern',['Celcius','Celcius'],'Tempe
 
 # ----------administre timestepkey and flags
 # TODO dit netjes maken
+#TODO flags toevoegen voor of het ellitrack nobv data, waterschaps data ect ix
 tstkey = stimestep(session,'1 hour','hourly data')
 
 flagkey = sflag(fc,'Ellitrack data','unvalidated')
@@ -91,7 +92,6 @@ df = df.set_axis(['name','diverid','description','x','y','tubetop','tubebot','al
 df = df.drop(columns=['distance_w','distance_p', 'registered'])
 df['epsgcode'] = 28992
 df['diverid'] = df['diverid'].astype('Int64') #convert to Int64 to set data type as int array which can contain null values
-# %%
 #find location or add to location table
 # before inserting, get latest id
 stmt = """SELECT max(locationkey) from {s}.{t};""".format(s='timeseries',t='location')
@@ -154,7 +154,7 @@ for dir in lstdir:
         name=i.filename.split('-')[1]
         
         locationkey= list(metadata.loc[metadata['diverid'] == name, 'locationkey']) #find locationkey based on matadata table #name is folder name? 
-        #print(name,locationkey)
+        print(name,locationkey)
 
         # if dir does not exist in root then make dir
         if not os.path.exists(ppath+dir):
