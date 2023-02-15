@@ -84,12 +84,12 @@ flagkey = sflag(fc,'Ellitrack data','unvalidated')
 # %%
 #--------------ADMINISTRATIE locationtable
 # administrate file with metadata
-sf = r'N:\Projects\11209000\11209005\B. Measurements and calculations\metadata\overzicht_nobv_type1.xlsx'
+sf = r'P:\11207812-somers-ontwikkeling\database_grondwater\overzicht_nobv_type1.xlsx'
 #sf=r'C:\projecten\grondwater_monitoring\ijmuiden\data\peilbuizen_metadata.xlsx'
 fskey = loadfilesource(sf,fc,'metadata')
 df = pd.read_excel(sf)
-df = df.set_axis(['name','diverid','description','x','y','tubetop','tubebot','altitude_msl','distance_w','distance_p', 'registered'], axis=1)
-df = df.drop(columns=['distance_w','distance_p', 'registered'])
+df = df.set_axis(['name','diverid','description','category','x','y','tubetop','tubebot','altitude_msl','distance_w','distance_p', 'registered'], axis=1)
+df = df.drop(columns=['category','distance_w','distance_p', 'registered'])
 df['epsgcode'] = 28992
 df['diverid'] = df['diverid'].astype('Int64') #convert to Int64 to set data type as int array which can contain null values
 #find location or add to location table
@@ -194,10 +194,10 @@ for dir in lstdir:
         dfti.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='timeseries')
             
         #na succsevol inladen in de database data naar de p verplaatsen,
-        #shutil.move(filepath, (os.path.join(ppath,dir)+'\\'+i.filename)) #write to p drive
+        shutil.move(filepath, (os.path.join(ppath,dir)+'\\'+i.filename)) #write to p drive
         
         # na succesvol inladen in de database data van de ftp verwijderen
-        # sftp.remove_file(rmpath+i.filename) #delete from ftp
+        sftp.remove_file(rmpath+i.filename) #delete from ftp
 
 
 #close the connection to SFTP
