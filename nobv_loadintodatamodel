@@ -64,8 +64,8 @@ local = True
 if local:
     fc = r"C:\projecten\nobv\2023\connection_local.txt"
 else:
-    dirname =  os.path.dirname(__file__)
-    fc = os.path.join(dirname,'aconnection.txt')
+    fc = r"C:\projecten\nobv\2023\connection_online.txt"
+
 session,engine = establishconnection(fc)
 #%%
 # ---------------administratie parameters
@@ -132,12 +132,22 @@ sftp = Sftp(
 # list items + paths for input + outputs
 lstdir = ['assendelft', 'rouveen']
 lpath = 'C:\\projecten\\nobv\\2023\\archief_lokaal'
-ppath= 'P:\\11207812-somers-uitvoering\\database_grondwater\\archief'
+ppath= 'P:\\11207812-somers-uitvoering\\database_grondwater\\archief\\'
 
 stmt = """SELECT locationkey, diverid from {s}.{t};""".format(s='timeseries',t='location')
 r=engine.execute(stmt).fetchall()
 metadata=pd.DataFrame(r)
 
+# %%
+def latest_entry(skey):
+    """function to find the lastest timestep entry per skey. 
+    input = skey
+    output = pandas df containing either none or a date"""
+    stmt="""select max(datetime) from timeseries.timeseriesvaluesandflags
+        where timeserieskey={s};""".format(s=skey)
+    r = engine.execute(stmt).fetchall()[0][0]
+    r=pd.to_datetime(r) 
+    return r 
 
 #%%
 # Connect to SFTP
@@ -169,35 +179,52 @@ for dir in lstdir:
         df['Datum'] = pd.to_datetime(df['Datum']) #change to datetime format
         df.rename(columns = {'Datum':'datetime'}, inplace = True) #change column name
 
-        #adding waterstand to db
+        r=latest_entry(skeygws)
+        tempw=latest_entry(skeytempw)
+        tempi=latest_entry(skeytempi)
+
         dfw= df[['datetime', 'Waterstand']]
-        dfw=dfw.rename(columns = {'Waterstand':'scalarvalue'}) #change column name
-        dfw['timeserieskey'] = skeygws #set series key for gws en temp
-        dfw['flags' ] = flagkey
-
-        dfw.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='timeseries')
-
-        #adding temperatuur water to db
         dft= df[['datetime', 'Temperatuur water']]
-        dft=dft.rename(columns = {'Temperatuur water':'scalarvalue'}) #change column name
-        dft['timeserieskey'] = skeytempw #set series key for gws en temp
-        dft['flags' ] = flagkey
-
-        dft.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='timeseries')
-
-        #adding temperatuur intern to db
         dfti= df[['datetime', 'Temperatuur intern']]
-        dfti=dfti.rename(columns = {'Temperatuur intern':'scalarvalue'}) #change column name
-        dfti['timeserieskey'] = skeytempi #set series key for gws en temp
-        dfti['flags' ] = flagkey
 
-        dfti.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='timeseries')
-            
+        #adding waterstand to db
+        if r!=dfw['datetime'].iloc[-1]:
+            dfw= df[['datetime', 'Waterstand']]
+            dfw=dfw.rename(columns = {'Waterstand':'scalarvalue'}) #change column name
+            dfw['timeserieskey'] = skeygws #set series key for gws en temp
+            dfw['flags' ] = flagkey
+
+            dfw.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='timeseries')
+        else:
+            print('not updating timeseries gws:', name)
+
+            #adding temperatuur water to db
+        if tempw!=dft['datetime'].iloc[-1]:
+            dft= df[['datetime', 'Temperatuur water']]
+            dft=dft.rename(columns = {'Temperatuur water':'scalarvalue'}) #change column name
+            dft['timeserieskey'] = skeytempw #set series key for gws en temp
+            dft['flags' ] = flagkey
+
+            dft.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='timeseries')
+        else:
+            print('not updating timeseries tempw:', name)
+
+            #adding temperatuur intern to db
+        if tempi!=dft['datetime'].iloc[-1]:
+            dfti= df[['datetime', 'Temperatuur intern']]
+            dfti=dfti.rename(columns = {'Temperatuur intern':'scalarvalue'}) #change column name
+            dfti['timeserieskey'] = skeytempi #set series key for gws en temp
+            dfti['flags' ] = flagkey
+
+            dfti.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='timeseries')
+        else:
+            print('not updating timeseries tempi:', name)   
+
         #na succsevol inladen in de database data naar de p verplaatsen,
         shutil.move(filepath, (os.path.join(ppath,dir)+'\\'+i.filename)) #write to p drive
         
         # na succesvol inladen in de database data van de ftp verwijderen
-        sftp.remove_file(rmpath+i.filename) #delete from ftp
+        #sftp.remove_file(rmpath+i.filename) #delete from ftp
 
 
 #close the connection to SFTP
