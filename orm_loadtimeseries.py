@@ -75,7 +75,7 @@ if __name__ == "__main__":
     if local:
         fc = r"C:\projecten\nobv\2023\connection_local.txt"
     else:
-        fc = r"D:\projecten\datamanagement\Nederland\waterkwaliteit\kinm_data\connection_kinm.txt"
+        fc = r"C:\projecten\nobv\2023\connection_online.txt"
     engine = readcredentials(fc)
     #when multiple schemas
     # schemas = ('subsurface_second')
