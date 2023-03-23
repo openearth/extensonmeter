@@ -169,8 +169,22 @@ for dir in lstdir:
         # if dir does not exist in root then make dir
         if not os.path.exists(ppath+dir):
             os.mkdir(ppath+dir)
+            
+        if filepath.endswith('.csv'):
+            df=pd.read_csv(filepath, sep="\t")
+        elif filepath.endswith('xml'):
+            df=pd.read_xml(filepath,xpath="//trackerinfo")
+            dfdates = pd.read_xml(xml,xpath=".//measurement")
+            dfdata = pd.read_xml(xml,xpath=".//input")
 
-        df=pd.read_csv(filepath, sep="\t")
+            #extract data, reset indices, combine again
+            id1=dfdata[dfdata['id'] == 1].reset_index(drop=True)
+            id2=dfdata[dfdata['id'] == 2].reset_index(drop=True)
+            id3=dfdata[dfdata['id'] == 3].reset_index(drop=True)
+            dfd=pd.concat([id1,id2,id3])
+
+            dfvalues=dfd.pivot(columns='id', values='data')
+            df=dfdates.join(dfvalues).drop(columns=['input'])
 
         skeygws = sserieskey(fc, pkeygws, locationkey[0], fskey[0],timestep='nonequidistant') #pkeygws
         skeytempw = sserieskey(fc, pkeytempw, locationkey[0], fskey[0],timestep='nonequidistant') #pkeytemp
