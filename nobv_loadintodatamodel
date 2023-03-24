@@ -130,10 +130,11 @@ sftp = Sftp(
     )
     
 # list items + paths for input + outputs
-lstdir = ['assendelft', 'rouveen']
+lstdir = ['assendelft', 'rouveen', 'aldeboarn']
 lpath = 'C:\\projecten\\nobv\\2023\\archief_lokaal'
 ppath= 'P:\\11207812-somers-uitvoering\\database_grondwater\\archief\\'
 
+#select locationkeys and diverids from database
 stmt = """SELECT locationkey, diverid from {s}.{t};""".format(s='timeseries',t='location')
 r=engine.execute(stmt).fetchall()
 metadata=pd.DataFrame(r)
@@ -166,16 +167,24 @@ for dir in lstdir:
         locationkey= list(metadata.loc[metadata['diverid'] == name, 'locationkey']) #find locationkey based on matadata table #name is folder name? 
         print(name,locationkey)
 
+        #administrate final store location of file source
+        fskey = loadfilesource((os.path.join(ppath,dir)+'\\'+i.filename),fc,'zoetwaterstijgghoogte')
+
         # if dir does not exist in root then make dir
         if not os.path.exists(ppath+dir):
             os.mkdir(ppath+dir)
             
-        if filepath.endswith('.csv'):
+        #select between .txt files and .xml files
+        if filepath.endswith('.txt'):
             df=pd.read_csv(filepath, sep="\t")
-        elif filepath.endswith('xml'):
-            df=pd.read_xml(filepath,xpath="//trackerinfo")
-            dfdates = pd.read_xml(xml,xpath=".//measurement")
-            dfdata = pd.read_xml(xml,xpath=".//input")
+            df['Datum'] = pd.to_datetime(df['Datum']) #change to datetime format
+        elif filepath.endswith('.xml'):
+            if os.stat(filepath).st_size == 0: #skipping empty files in ellitrack
+                continue
+            
+           # df=pd.read_xml(filepath,xpath="//trackerinfo")
+            dfdates = pd.read_xml(filepath,xpath=".//measurement")
+            dfdata = pd.read_xml(filepath,xpath=".//input")
 
             #extract data, reset indices, combine again
             id1=dfdata[dfdata['id'] == 1].reset_index(drop=True)
@@ -185,12 +194,15 @@ for dir in lstdir:
 
             dfvalues=dfd.pivot(columns='id', values='data')
             df=dfdates.join(dfvalues).drop(columns=['input'])
+            df.columns=['Datum','Waterstand','Temperatuur water', 'Temperatuur intern']
+            df['Datum']=pd.to_datetime(df['Datum']) #change to datetime format
+            #remove UTC timestamp from timeseries only in XMLS
+            df['Datum'] = df['Datum'].dt.tz_convert(None)
 
         skeygws = sserieskey(fc, pkeygws, locationkey[0], fskey[0],timestep='nonequidistant') #pkeygws
         skeytempw = sserieskey(fc, pkeytempw, locationkey[0], fskey[0],timestep='nonequidistant') #pkeytemp
         skeytempi = sserieskey(fc, pkeytempi, locationkey[0], fskey[0],timestep='nonequidistant') #pkeytemp
 
-        df['Datum'] = pd.to_datetime(df['Datum']) #change to datetime format
         df.rename(columns = {'Datum':'datetime'}, inplace = True) #change column name
 
         r=latest_entry(skeygws)
@@ -238,7 +250,7 @@ for dir in lstdir:
         shutil.move(filepath, (os.path.join(ppath,dir)+'\\'+i.filename)) #write to p drive
         
         # na succesvol inladen in de database data van de ftp verwijderen
-        sftp.remove_file(rmpath+i.filename) #delete from ftp
+        #sftp.remove_file(rmpath+i.filename) #delete from ftp
 
 
 #close the connection to SFTP
