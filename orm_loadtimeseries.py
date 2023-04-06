@@ -71,7 +71,7 @@ def resetindex(engine,schema):
         engine.execute(strSql)
         
 if __name__ == "__main__":
-    local = True
+    local = False
     if local:
         fc = r"C:\projecten\nobv\2023\connection_local.txt"
     else:

@@ -201,7 +201,7 @@ for dir in lstdir:
             df.columns=['Datum','Waterstand','Temperatuur water', 'Temperatuur intern']
             df['Datum']=pd.to_datetime(df['Datum'])  #change to datetime format
             #remove UTC timestamp from timeseries only in XMLS
-            #turned off for now, updating in local timezone
+            #turned off for now, updating database in local timezone
             #df['Datum'] = df['Datum'].dt.tz_convert(None)
 
         skeygws = sserieskey(fc, pkeygws, locationkey[0], fskey[0],timestep='nonequidistant') #pkeygws
