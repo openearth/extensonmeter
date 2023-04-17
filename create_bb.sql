@@ -10,3 +10,11 @@ FROM timeseries.location l
 join timeseries.timeseries ts on ts.locationkey = l.locationkey
 where l.geom is not Null
 group by left(name,3)
+
+update timeseries.boundingbox as bb set groupname = f.fullname
+from (values
+	 ('Assendelft', 'ASD'),
+	 ('Aldeboarn', 'ALB'),
+	 ('Rouveen','ROV')
+	 ) as f(fullname, groupname)
+where f.groupname=bb.groupname
