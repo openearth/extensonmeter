@@ -57,7 +57,6 @@ from ts_helpders import establishconnection, read_config, loadfilesource,locatio
 #from ext_loaddataintodatamodel import metadata_location
 from sftp_tools import Sftp
 
-"""Still testing this code!"""
 # ------------------------config. making connection to ftp and databases
 # TODO integrate neatly
 local = False
@@ -131,7 +130,14 @@ sftp = Sftp(
     
 # list items + paths for input + outputs
 #manually make a list with the folder locations from ellitrack
-lstdir =  ['aldeboarn', 'assendelft', 'rouveen']
+
+#Nog toe te voegen aan de database
+#lstdir = ['cabauw','bleskensgraaf','berkenwoude', 'gouderak', 'vegelinsoord', 'hazerswoude', 'vlist','zegveld']
+
+#tot zo ver de enige waarvan we zowel metadata als gegevens in een ellitrack portaal hebben
+#lstdir =  ['rouveen']
+lstdir =  ['assendelft','aldeboarn', 'rouveen']
+
 lpath = 'C:\\projecten\\nobv\\2023\\archief_lokaal'
 ppath= 'P:\\11207812-somers-uitvoering\\database_grondwater\\archief\\'
 
@@ -165,7 +171,7 @@ for dir in lstdir:
 
         name=i.filename.split('-')[1]
         #skipping files which are not correct
-        if name == "21070208" or name == "22081306" or name =='22081307': #skip these ellitrack number as it is not correctly in metadata file yet 
+        if name == "21070208" or name == "22081306" or name =='22081307' or name =='20040803' or name =='22072101': #skip these ellitrack number as it is not correctly in metadata file yet 
             continue
         
         locationkey= list(metadata.loc[metadata['diverid'] == name, 'locationkey']) #find locationkey based on matadata table #name is folder name? 
@@ -221,7 +227,7 @@ for dir in lstdir:
         dfti= df[['datetime', 'Temperatuur intern']]
 
         #adding waterstand to db
-        if r!=dfw['datetime'].iloc[-1]:
+        if r!=(dfw['datetime'].iloc[-1]).replace(tzinfo=None):
             dfw= df[['datetime', 'Waterstand']]
             dfw=dfw.rename(columns = {'Waterstand':'scalarvalue'}) #change column name
             dfw['timeserieskey'] = skeygws #set series key for gws en temp
@@ -232,7 +238,7 @@ for dir in lstdir:
             print('not updating timeseries gws:', name)
 
             #adding temperatuur water to db
-        if tempw!=dft['datetime'].iloc[-1]:
+        if tempw!=(dft['datetime'].iloc[-1]).replace(tzinfo=None):
             dft= df[['datetime', 'Temperatuur water']]
             dft=dft.rename(columns = {'Temperatuur water':'scalarvalue'}) #change column name
             dft['timeserieskey'] = skeytempw #set series key for gws en temp
@@ -243,7 +249,7 @@ for dir in lstdir:
             print('not updating timeseries tempw:', name)
 
             #adding temperatuur intern to db
-        if tempi!=dft['datetime'].iloc[-1]:
+        if tempi!=(dft['datetime'].iloc[-1]).replace(tzinfo=None):
             dfti= df[['datetime', 'Temperatuur intern']]
             dfti=dfti.rename(columns = {'Temperatuur intern':'scalarvalue'}) #change column name
             dfti['timeserieskey'] = skeytempi #set series key for gws en temp
