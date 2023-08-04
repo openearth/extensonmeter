@@ -61,9 +61,9 @@ from sftp_tools import Sftp
 # TODO integrate neatly
 local = False
 if local:
-    fc = r"C:\projecten\nobv\2023\connection_local.txt"
+    fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_local.txt"
 else:
-    fc = r"C:\projecten\nobv\2023\connection_online.txt"
+    fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_online.txt"
 
 session,engine = establishconnection(fc)
 #%%
@@ -136,7 +136,9 @@ sftp = Sftp(
 
 #tot zo ver de enige waarvan we zowel metadata als gegevens in een ellitrack portaal hebben
 #lstdir =  ['rouveen']
-lstdir =  ['assendelft','aldeboarn', 'rouveen']
+lstdir =  ['assendelft','aldeboarn', 'rouveen','vegelinsoord', 'gouderak']
+
+#mogelijk om Berkenwoude, Cabauw, Bleskensgraaf en Hazerswoude toe te voegen maar hier zijn nog geen x en y locaties van bekend dus dit komt later
 
 lpath = 'C:\\projecten\\nobv\\2023\\archief_lokaal'
 ppath= 'P:\\11207812-somers-uitvoering\\database_grondwater\\archief\\'
@@ -171,7 +173,7 @@ for dir in lstdir:
 
         name=i.filename.split('-')[1]
         #skipping files which are not correct
-        if name == "21070208" or name == "22081306" or name =='22081307' or name =='20040803' or name =='22072101': #skip these ellitrack number as it is not correctly in metadata file yet 
+        if name == "21070208" or name == "22081306" or name =='22081307' or name =='20040803' or name =='22072101' or name =='22091406': #skip these ellitrack number as it is not correctly in metadata file yet 
             continue
         
         locationkey= list(metadata.loc[metadata['diverid'] == name, 'locationkey']) #find locationkey based on matadata table #name is folder name? 
