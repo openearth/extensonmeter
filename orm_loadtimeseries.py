@@ -50,6 +50,7 @@ def checkschema(engine,schema):
 def readcredentials(fc):
     f = open(fc)
     engine = create_engine(f.read(), echo=False)
+    #engine = create_engine("postgresql+psycopg2://postgres:ghn13227@localhost/nobv")
     f.close()
     return engine
 
@@ -71,9 +72,9 @@ def resetindex(engine,schema):
         engine.execute(strSql)
         
 if __name__ == "__main__":
-    local = False
+    local = True
     if local:
-        fc = r"C:\projecten\nobv\2023\connection_local.txt"
+        fc = r"C:\develop\extensometer\localhost_connection.txt"
     else:
         fc = r"C:\projecten\nobv\2023\connection_online.txt"
     engine = readcredentials(fc)

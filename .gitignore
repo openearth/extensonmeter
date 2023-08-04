@@ -1,5 +1,6 @@
 *.pyc
 config*.txt
+*connection*.txt
 
 
 # vim, mac os

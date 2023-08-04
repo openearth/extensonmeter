@@ -153,7 +153,8 @@ def location(fc,fskey,name,x,y,epsg,shortname='',description='',z=0,altitude_msl
     if x==None or y==None or epsg==None:
         print('please provide coordinates and a proper crs epsg code, these are required')
         return
-    
+    else:
+        print(x,y,epsg)
     session,engine = establishconnection(fc)
     f = session.query(Location).filter_by(name=name).first()
     try:
