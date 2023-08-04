@@ -37,7 +37,8 @@ session,engine = establishconnection(fc)
 
 # %%
 # the url to retrieve the data from, groundwaterstation data 
-ground = "https://delfland.lizard.net/api/v4/groundwaterstations/"
+
+ground = "https://hhnk.lizard.net/api/v4/groundwaterstations/"
 #creation of empty lists to fill during retrieving process
 gdata = []
 tsv=[]
@@ -55,30 +56,42 @@ while response["next"]:
         geom = response['results'][i]['geometry']
         #print( response['results'][i]['filters'][0]['code'])
         #creation of a metadata dict to store the data
-        metadata= {
-            'locatie.naam' : response['results'][i]['filters'][0]['code'], 
-            'x' : geom["coordinates"][0],
-            'y' : geom["coordinates"][1],
-                }
-        ts = response['results'][i]['filters'][0]['timeseries'][0]
-        timeurllist.append([ts])
-        #conversion to df
-        gdata.append(metadata)
+        if response['results'][i].get("filters") is not None:  #looks if key 'filters'is filled, if not, it skips the entry
+            for j in range(len(response['results'][i].get('filters'))):
+                if response['results'][i]['filters'][j].get('timeseries') == []: #some fill in filters but not timeseries so sort for that
+                    print('empty timeseries')
+                else:
+                    metadata= {
+                        'locatie.naam' : response['results'][i]['filters'][0]['code'], 
+                        'aquifer_confinement' :response['results'][i]['filters'][j]['aquifer_confinement'],
+                        'filter_bottom_level':response['results'][i]['filters'][j]['filter_bottom_level'],
+                        'filter_top_level':response['results'][i]['filters'][j]['filter_top_level'],
+                        'top_level' :response['results'][i]['filters'][j]['top_level'],
+                        'x' : geom["coordinates"][0],
+                        'y' : geom["coordinates"][1],
+                        'url': response['results'][i]['url']}
+                    ts = response['results'][i]['filters'][j]['timeseries'][0]
+                    timeurllist.append([ts])
+                    #conversion to df
+                    gdata.append(metadata)
 
-        #new call to retrieve timeseries
-        tsresponse = requests.get(ts).json()
-        start = tsresponse['start']
-        end= tsresponse['end']
+                    #new call to retrieve timeseries
+                    tsresponse = requests.get(ts).json()
+                    start = tsresponse['start']
+                    end= tsresponse['end']
 
-        if start is not None or end is not None:
-            params = {'start': start, 'end': end}
-            t = requests.get(ts + 'events', params=params).json()['results']
-        #only retrieving data which has a flag below four, flags are added next to the timeseries
-        #this is why we first need to extract all timeseries before we can filter on flags... 
-        #for flags see: https://publicwiki.deltares.nl/display/FEWSDOC/D+Time+Series+Flags
-            if t[i]['flag']<4:
-                tsv.extend(t)
-        timeseries = pd.DataFrame.from_dict(tsv) #check size of timeseries to see if data is returned
-        df = pd.DataFrame(gdata)
+                    if start is not None or end is not None:
+                        params = {'start': start, 'end': end}
+                        t = requests.get(ts + 'events', params=params).json()['results']
+                    #only retrieving data which has a flag below four, flags are added next to the timeseries
+                    #this is why we first need to extract all timeseries before we can filter on flags... 
+                    #for flags see: https://publicwiki.deltares.nl/display/FEWSDOC/D+Time+Series+Flags
+                        if t[i]['flag']<5:
+                            tsv.extend(t)
+                            print('timeseries flag is below <5 ' + response['results'][i]['filters'][0]['code'])
+                        else:
+                            print('flag is >5 for location: ' + response['results'][i]['filters'][0]['code'])
+                    timeseries = pd.DataFrame.from_dict(tsv) #check size of timeseries to see if data is returned
+                    df = pd.DataFrame(gdata)
 
 # %%

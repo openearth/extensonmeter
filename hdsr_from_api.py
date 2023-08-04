@@ -56,6 +56,7 @@ while response["next"]:
         geom = response['results'][i]['geometry']
         #print( response['results'][i]['filters'][0]['code'])
         #creation of a metadata dict to store the data
+        #loops over filters in case there are more filters
         for j in range(len(response['results'][i].get('filters'))):
             metadata= {
                 'locatie.naam' : response['results'][i]['filters'][j]['code'], 
