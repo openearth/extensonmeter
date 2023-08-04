@@ -46,7 +46,7 @@ else:
     fc = r"C:\projecten\nobv\2023\connection_online.txt"
 
 mapserver_url = 'https://gis.wetterskipfryslan.nl/arcgis/rest/services/Grondwatersite_mpn/MapServer/'
-
+session,engine = establishconnection(fc)
 def get_mapserver_data(mapserver_url,id):
     try:
         # Construct the URL for the specific layer's query endpoint
@@ -74,9 +74,10 @@ def get_mapserver_data(mapserver_url,id):
         print(f"An error occurred: {e}")
         return None
 
-def procesgeom(jsonrespons):
-    for i in range(len(jsonrespons)):
-        attrib = jsonrespons['features'][i]['attributes']
+def procesgeom(jsonrespons,fid):
+    features = jsonrespons['features']
+    for i in range(len(features)):
+        attrib = features[i]['attributes']
         loc = attrib['LOCATIE']
         nam = attrib['NAAM']
         ogw = attrib['ONDIEPGRONDWATER']
@@ -85,52 +86,34 @@ def procesgeom(jsonrespons):
         mv  = attrib['MAAIVELD']
         x = jsonrespons['features'][i]['geometry']['x']
         y = jsonrespons['features'][i]['geometry']['y']
-        return loc,nam,ogw,tid,des,mv,x,y
-        
+        lid = location(fc,fid[0][0],nam,x,y,epsg=4326,shortname=tid,description=des,z=mv)
+        print('locatie',nam,'opgeslagen in database')
+        return
 
 if __name__ == "__main__":
     # Example usage
     lstlnks = ("""https://gis.wetterskipfryslan.nl/arcgis/rest/services/Grondwatersite_mpn/MapServer/0/query?returnGeometry=true&where=1=1&outSr=4326&outFields=*&geometry={"xmin":2.8125,"ymin":52.482780222078226,"xmax":5.625,"ymax":54.16243396806779,"spatialReference":{"wkid":4326}}&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects&inSr=4326&geometryPrecision=6&f=json""",
                """https://gis.wetterskipfryslan.nl/arcgis/rest/services/Grondwatersite_mpn/MapServer/0/query?returnGeometry=true&where=1=1&outSr=4326&outFields=*&geometry={"xmin":5.625,"ymin":52.482780222078226,"xmax":8.4375,"ymax":54.16243396806779,"spatialReference":{"wkid":4326}}&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects&inSr=4326&geometryPrecision=6&f=json""")
 
-
     for alink in lstlnks:
         response = requests.get(alink)
         if response.status_code == 200:
             data = response.json()
-
             # store link as filesource
             fid = loadfilesource(alink,fc,remark='online resource')
-            loc,nam,ogw,tid,des,mv,x,y = procesgeom(data)
-            lid = location(fc,fid,nam,x,y,epsg=4326,shortname=tid,description=des,z=mv)
-            lid = location(fc,fid,loc,x,y,4326,tid,des,mv)
-        
-            session,engine = establishconnection(fc)
-
-            from orm_timeseries import Base, FileSource, Location
-            f = session.query(Location).filter_by(name=nam).first()
-            f = Location(filesourcekey=fid,
-                 name=nam,
-                 shortname=tid,
-                 description=des,
-                 x=x,
-                 y=y,
-                 z=mv,
-                 epsgcode=4326,
-                 altitude_msl=mv)
-            session.add(f)
-            session.commit()
-
-
+            procesgeom(data,fid)
         else:
             print(f"Request failed with status code: {response.status_code}")
-            
-        respons = requests.get(alink)
-        geom = respons.json()
-        procesgeom(geom)
+    
+
+    # now for each location retrieve the timeseries data.
+    # get a list of shortnames, that is the key
+    tmpl = f"""https://gis.wetterskipfryslan.nl/arcgis/rest/services/Grondwatersite_mpn/MapServer/1/query?outFields=*&orderByFields=MONSTERDATUM&f=json&where=TELEMETRIELOCATIEID='{id}'+AND+MONSTERDATUM+>+date+'2023-8-4+00:00:00'+"""
+    records = session.query(Location).all()
+    for r in records:
+        id = r.shortname
+        ts = requests.get(tmpl)
+        if ts.status_code == 200:
+            tsdata = ts.json()
 
 
-    data = get_mapserver_data(mapserver_url,0)
-    if data:
-        # Do something with the retrieved data
-        print(data)
