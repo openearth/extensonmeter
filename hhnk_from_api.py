@@ -69,8 +69,7 @@ def latest_entry(skey):
     r=pd.to_datetime(r) 
     return r 
 
-#funcion to find if location was already in location table
-#find location or add to location table
+
 # %% Retrieving data from API and putting in database
 # the url to retrieve the data from, groundwaterstation data 
 ground = "https://hhnk.lizard.net/api/v4/groundwaterstations/"
@@ -99,7 +98,6 @@ while response["next"]:
                     #also need to loop over all the timeseries entries
                     for k in range(len(response['results'][i]['filters'][j]['timeseries'])):
                         ts = response['results'][i]['filters'][j]['timeseries'][k]
-                        timeurllist.append([ts])
 
                         #new call to retrieve timeseries
                         tsresponse = requests.get(ts).json()
@@ -123,14 +121,42 @@ while response["next"]:
                                                     diverid=response['results'][i]['filters'][j]['code'],
                                                     altitude_msl=response['results'][i]['filters'][j]['top_level'],
                                                     tubebot=response['results'][i]['filters'][j]['filter_bottom_level'],
-                                                    tubetop=response['results'][i]['filters'][j]['filter_top_level'])
+                                                    tubetop=response['results'][i]['filters'][j]['filter_top_level']
+                                                    )
 
-                                tsv.extend(t)
-                               # print('timeseries flag is below <5 ' + response['results'][i]['filters'][0]['code'])
-                            else:
-                                continue
-                                #print('flag is >5 for location: ' + response['results'][i]['filters'][0]['code'])
-                    timeseries = pd.DataFrame.from_dict(tsv) #check size of timeseries to see if data is returned
-                    #dft = pd.DataFrame(gdata)
+                                pkeygws = sparameter(fc,
+                                                     tsresponse['observation_type']['unit'],
+                                                     tsresponse['observation_type']['parameter'],
+                                                     [tsresponse['observation_type']['unit'], tsresponse['observation_type']['reference_frame']], #unit
+                                                     tsresponse['observation_type']['description']
+                                                     )
+                                flagkey = sflag(fc,
+                                                str(t[i]['flag']),
+                                                'FEWS-flag'
+                                                )
+                                
+                                skeygws = sserieskey(fc, 
+                                                     pkeygws, 
+                                                     locationkey, 
+                                                     fskey[0],
+                                                     timestep='nonequidistant'
+                                                     )
+                                
+                                #upload timeseries values and flags data
+                                #flag is dropped because we need to attach the flagkey
+                                df=pd.DataFrame.from_dict(t)
+
+                                df['datetime']=pd.to_datetime(df['time'])
+
+                                r=latest_entry(skeygws)
+                                if r!=(df['datetime'].iloc[-1]).replace(tzinfo=None):
+                                    try:
+                                        df.drop(columns=['validation_code', 'comment', 'time', 'last_modified','detection_limit', 'flag'],inplace=True)
+                                        df=df.rename(columns = {'value':'scalarvalue'}) #change column
+                                        df['timeserieskey'] = skeygws
+                                        df['flags'] = flagkey
+                                        df.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='timeseries')
+                                    except:
+                                        continue 
 
 # %%
