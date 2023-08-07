@@ -116,7 +116,7 @@ def loadfilesource(source,fc, remark='',lasttransactionid=None):
         engine.dispose()
         return fkey,ftid
 
-def location(fc,fskey,name,x,y,epsg,diverid,tubebot,tubetop,shortname='',description='',z=0,altitude_msl=0):
+def location(fc,fskey,name,x,y,epsg,shortname='',description='',z=0,altitude_msl=0, diverid=None,tubebot=None,tubetop=None):
     """
     Parameters
     ----------
