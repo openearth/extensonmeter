@@ -36,8 +36,10 @@ Created on Tue Jul 19 12:05:14 2022
 
 import os
 import requests
+from datetime import datetime
 
 from ts_helpders import loadfilesource,location,establishconnection,Location
+from ts_helpders import sparameter,stimestep,sflag,sserieskey
 
 local = True
 if local:
@@ -81,14 +83,40 @@ def procesgeom(jsonrespons,fid):
         loc = attrib['LOCATIE']
         nam = attrib['NAAM']
         ogw = attrib['ONDIEPGRONDWATER']
+        dgw = attrib['DIEPGRONDWATER']
+        fm  = attrib['FREQUENTIEMETING']
         tid = attrib['TELEMETRIELOCATIEID']
         des = attrib['OMSCHRIJVING']
         mv  = attrib['MAAIVELD']
         x = jsonrespons['features'][i]['geometry']['x']
         y = jsonrespons['features'][i]['geometry']['y']
         lid = location(fc,fid[0][0],nam,x,y,epsg=4326,shortname=tid,description=des,z=mv)
+        
+        # set the flag key to validated
+        flagid = sflag(fc,'validated')
+
+        # set the timestep
+        tstid = stimestep(fc,fm,'dagelijks')
+
+        # set the parameterkey and the serieskey
+        ogw = 'n'
+        dgw = 'n'
+        if ogw == 'j':
+            pid = sparameter(fc,'ondiepgrondwater','ondiepgrondwater',('stand','m-NAP'))
+            sid = sserieskey(fc,pid,lid,fid,fm)
+        if dgw == 'j':
+            pid = sparameter(fc,'diepgrondwater','diepgrondwater',('stand','m-NAP'))
+            sid = sserieskey(fc,pid,lid,fid,fm)
+
+        # there is 1 tube with two filters
+        # deep is Ai6 and Ai5
         print('locatie',nam,'opgeslagen in database')
-        return
+        return lid
+
+# Function to convert timestamp to datetime
+def timestamp_to_datetime(timestamp):
+    return datetime.fromtimestamp(timestamp / 1000.0)
+
 
 if __name__ == "__main__":
     # Example usage
@@ -101,19 +129,26 @@ if __name__ == "__main__":
             data = response.json()
             # store link as filesource
             fid = loadfilesource(alink,fc,remark='online resource')
-            procesgeom(data,fid)
+            lid = procesgeom(data,fid)
         else:
             print(f"Request failed with status code: {response.status_code}")
     
 
     # now for each location retrieve the timeseries data.
     # get a list of shortnames, that is the key
-    tmpl = f"""https://gis.wetterskipfryslan.nl/arcgis/rest/services/Grondwatersite_mpn/MapServer/1/query?outFields=*&orderByFields=MONSTERDATUM&f=json&where=TELEMETRIELOCATIEID='{id}'+AND+MONSTERDATUM+>+date+'2023-8-4+00:00:00'+"""
+    tmpl = f"""https://gis.wetterskipfryslan.nl/arcgis/rest/services/Grondwatersite_mpn/MapServer/1/query?outFields=*&orderByFields=MONSTERDATUM&f=json&where=TELEMETRIELOCATIEID='{id}'+AND+MONSTERDATUM+>+date+'2023-01-01+00:00:00'+"""
     records = session.query(Location).all()
     for r in records:
         id = r.shortname
-        ts = requests.get(tmpl)
+        ts = requests.get(f"""https://gis.wetterskipfryslan.nl/arcgis/rest/services/Grondwatersite_mpn/MapServer/1/query?outFields=*&orderByFields=MONSTERDATUM&f=json&where=TELEMETRIELOCATIEID='{id}'+AND+MONSTERDATUM+>+date+'2010-01-01+00:00:00'+""")
         if ts.status_code == 200:
             tsdata = ts.json()
+            print(id, len(tsdata['features']))
+            for v in range(len(tsdata['features'])):
+                id = tsdata['features'][v]['attributes']['TELEMETRIELOCATIEID']
+                dt = tsdata['features'][v]['attributes']['MONSTERDATUM']
+                date_time_obj = timestamp_to_datetime(dt)
+                vl = tsdata['features'][v]['attributes']['WAARDE']
+                print(id,date_time_obj,vl)
 
 

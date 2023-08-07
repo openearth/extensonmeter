@@ -273,7 +273,7 @@ def sparameter(fc,parameter,name,unit,description,parametergroup=None,shortname=
         Short notation of the parameter (P for Phosphate for instance).
     name : string
         Long name for parameter (Phosphate for instance).
-    unit : list of string
+    unit : list of string (unit, unitname)
         Integer derived from unit table.
     description : string
         Addistional description for the parameter.
