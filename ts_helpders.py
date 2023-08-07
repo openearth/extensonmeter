@@ -116,11 +116,12 @@ def loadfilesource(source,fc, remark='',lasttransactionid=None):
         engine.dispose()
         return fkey,ftid
 
-def location(fc,fskey,name,x,y,epsg,shortname='',description='',z=0,altitude_msl=0):
+def location(fc,fskey,name,x,y,epsg,diverid,tubebot,tubetop,shortname='',description='',z=0,altitude_msl=0):
     """
     Parameters
     ----------
     fc : String
+
         Link to credentials file for access to database.
     fskey : integer
         Foreignkey value that is the link to the filesource or online source of the information.
@@ -163,11 +164,16 @@ def location(fc,fskey,name,x,y,epsg,shortname='',description='',z=0,altitude_msl
                  name=name,
                  shortname=shortname,
                  description=description,
+                 tubebot=tubebot,
+                 tubetop=tubetop,
                  x=x,
                  y=y,
                  z=z,
                  epsgcode=epsg,
-                 altitude_msl=altitude_msl)
+                 diverid=diverid,
+                 altitude_msl=altitude_msl,
+                 )
+            
             session.add(f)
             session.commit()
             if epsg == 28992:
