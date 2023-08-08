@@ -15,6 +15,8 @@ update timeseries.boundingbox as bb set groupname = f.fullname
 from (values
 	 ('Assendelft', 'ASD'),
 	 ('Aldeboarn', 'ALB'),
-	 ('Rouveen','ROV')
+	 ('Rouveen','ROV'),
+	  ('Gouderak', 'GOU'),
+	  ('Vegelinsoord', 'VEG')
 	 ) as f(fullname, groupname)
 where f.groupname=bb.groupname
