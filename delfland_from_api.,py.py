@@ -158,3 +158,4 @@ while response["next"]:
                                         df.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='timeseries')
                                     except:
                                         continue 
+# %%
