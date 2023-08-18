@@ -37,7 +37,9 @@ Created on Tue Jul 19 12:05:14 2022
 import os
 import requests
 from datetime import datetime
+import pandas as pd
 
+from orm_timeseries import TimeSeriesValuesAndFlags as tsv
 from ts_helpders import loadfilesource,location,establishconnection,Location
 from ts_helpders import sparameter,stimestep,sflag,sserieskey
 
@@ -49,36 +51,20 @@ else:
 
 mapserver_url = 'https://gis.wetterskipfryslan.nl/arcgis/rest/services/Grondwatersite_mpn/MapServer/'
 session,engine = establishconnection(fc)
-def get_mapserver_data(mapserver_url,id):
-    try:
-        # Construct the URL for the specific layer's query endpoint
-        query_url = f"{mapserver_url}{id}/query"
 
-        # Parameters for the query
-        params = {
-            "f": "json",         # Format of the response (JSON)
-            "where": "1=1",      # Query condition (return all features)
-            "outFields": "*",   # Fields to include in the response (all fields)
-            "returnGeometry": "true"  # Include geometry in the response
-        }
+def procesdata(jsonrespons,fid):
+    """Consumes the jsonrespons and stores:
+       location, flag, parameter, serieskey and loads the data by calling storetimeseries
 
-        # Make the HTTP GET request to the MapServer
-        response = requests.get(query_url, params=params)
+    Args:
+        jsonrespons (json): first layer with location, parameter information
+        fid (integer): file identifier store in the data model
+    """
 
-        # Check if the request was successful (HTTP status code 200)
-        if response.status_code == 200:
-            data = response.json()
-            return data
-        else:
-            print(f"Request failed with status code: {response.status_code}")
-            return None
-    except requests.RequestException as e:
-        print(f"An error occurred: {e}")
-        return None
-
-def procesgeom(jsonrespons,fid):
     features = jsonrespons['features']
     for i in range(len(features)):
+        ogw = None
+        dgw = None
         attrib = features[i]['attributes']
         loc = attrib['LOCATIE']
         nam = attrib['NAAM']
@@ -90,65 +76,121 @@ def procesgeom(jsonrespons,fid):
         mv  = attrib['MAAIVELD']
         x = jsonrespons['features'][i]['geometry']['x']
         y = jsonrespons['features'][i]['geometry']['y']
-        lid = location(fc,fid[0][0],nam,x,y,epsg=4326,shortname=tid,description=des,z=mv)
-        
+        print(tid,nam)
+        # set location parameter
+        lid = location(fc,fid,nam,x,y,epsg=4326,shortname=tid,description=des,z=mv)
         # set the flag key to validated
         flagid = sflag(fc,'validated')
 
-        # set the timestep
-        tstid = stimestep(fc,fm,'dagelijks')
-
         # set the parameterkey and the serieskey
-        ogw = 'n'
-        dgw = 'n'
-        if ogw == 'j':
-            pid = sparameter(fc,'ondiepgrondwater','ondiepgrondwater',('stand','m-NAP'))
+        # some locations have 2 filters, for now this is only indicated by ogw, dgw
+        if ogw == 'j' and dgw == 'j':
+            pid = sparameter(fc,'ondiepgrondwater','ondiepgrondwater',('stand','m-NAP'),'ondiepgrondwater')
             sid = sserieskey(fc,pid,lid,fid,fm)
-        if dgw == 'j':
-            pid = sparameter(fc,'diepgrondwater','diepgrondwater',('stand','m-NAP'))
+            pid2 = sparameter(fc,'diepgrondwater','diepgrondwater',('stand','m-NAP'),'diepgrondwater')
+            sid2 = sserieskey(fc,pid2,lid,fid,fm)
+            # store timeseries associated with location for tid (the identifier of the telemetrielocationid)
+            storetimeseries(sid,tid,flagid,sid2)
+        elif ogw == 'j' and dgw == None:
+            pid = sparameter(fc,'ondiepgrondwater','ondiepgrondwater',('stand','m-NAP'),'ondiepgrondwater')
             sid = sserieskey(fc,pid,lid,fid,fm)
+            # store timeseries associated with location for tid (the identifier of the telemetrielocationid)
+            storetimeseries(sid,tid,flagid)
+        elif dgw == 'j' and ogw == None:
+            pid = sparameter(fc,'diepgrondwater','diepgrondwater',('stand','m-NAP'),'ondiepgrondwater')
+            sid = sserieskey(fc,pid2,lid,fid,fm)
+            # store timeseries associated with location for tid (the identifier of the telemetrielocationid)
+            storetimeseries(sid,tid,flagid)
 
-        # there is 1 tube with two filters
-        # deep is Ai6 and Ai5
-        print('locatie',nam,'opgeslagen in database')
-        return lid
+        print('Data for location',nam,'stored in database')
+
+def storetimeseries(sid,id,flagid, sid2=None):
+    """With the unique identifier for each location this function calls
+       a second rest service to get timeseries data
+
+    Args:
+        sid (json): timeseriesid (or better, unique identifier for combination
+                    location, parameter, unit)
+        id (integer): unique identifier of the location
+        flagid (integer): identifier indicating quality of the data
+        sid2 (integer): in case of a second filter for the same location a
+                        unique identifier describes a different dataset
+    """
+
+    # now for each location retrieve the timeseries data.
+    # get a list of shortnames, that is the key
+    ts = requests.get(f"""https://gis.wetterskipfryslan.nl/arcgis/rest/services/Grondwatersite_mpn/MapServer/1/query?outFields=*&orderByFields=MONSTERDATUM&f=json&where=TELEMETRIELOCATIEID='{id}'+AND+MONSTERDATUM+>+date+'2010-01-01+00:00:00'+""")
+    print(id, ts.status_code)
+    if ts.status_code == 200:
+        tsdata = ts.json()
+        for v in range(len(tsdata['features'])):
+            text = 'ondiep'
+            tid = None
+            if sid2 is not None:
+                tid = tsdata['features'][v]['attributes']['TELEMETRIEKANAALID']
+                if tid == 'Ai5':
+                    dt = tsdata['features'][v]['attributes']['MONSTERDATUM']
+                    vl = tsdata['features'][v]['attributes']['WAARDE']
+                elif tid == 'Ai6':
+                    dt = tsdata['features'][v]['attributes']['MONSTERDATUM']
+                    vl = tsdata['features'][v]['attributes']['WAARDE']
+                    text = 'diep'
+            else:
+                dt = tsdata['features'][v]['attributes']['MONSTERDATUM']
+                vl = tsdata['features'][v]['attributes']['WAARDE']
+
+            date_time_obj = timestamp_to_datetime(dt)
+            print(text, id,tid,sid,date_time_obj,vl)
+            anid = session.query(tsv).filter_by(timeserieskey=sid,
+                                                datetime=date_time_obj,
+                                                scalarvalue=vl).first()
+            if anid == None:
+                insert = tsv(timeserieskey=sid,
+                            datetime=date_time_obj,
+                            scalarvalue=vl,
+                            flags=flagid)
+                session.merge(insert)
+                session.commit()
+
 
 # Function to convert timestamp to datetime
 def timestamp_to_datetime(timestamp):
+    """Genereates a valid datetemobject from datatime given in seconds
+
+    Args:
+        timestamp (integer): julian date in seconds
+
+    Returns:
+        datetime: returns valid datetime object 
+    """
     return datetime.fromtimestamp(timestamp / 1000.0)
 
 
 if __name__ == "__main__":
-    # Example usage
+    """
+    Description
+    This routine calls two arcgis rest services from groundwaterportal of Wetterskip Fryslan
+    https://www.wetterskipfryslan.nl/kaarten/grondwaterstanden
+
+    Data is stored in a PostgreSQL PostGIS data with a FEWS timeseries data model
+
+    """
     lstlnks = ("""https://gis.wetterskipfryslan.nl/arcgis/rest/services/Grondwatersite_mpn/MapServer/0/query?returnGeometry=true&where=1=1&outSr=4326&outFields=*&geometry={"xmin":2.8125,"ymin":52.482780222078226,"xmax":5.625,"ymax":54.16243396806779,"spatialReference":{"wkid":4326}}&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects&inSr=4326&geometryPrecision=6&f=json""",
                """https://gis.wetterskipfryslan.nl/arcgis/rest/services/Grondwatersite_mpn/MapServer/0/query?returnGeometry=true&where=1=1&outSr=4326&outFields=*&geometry={"xmin":5.625,"ymin":52.482780222078226,"xmax":8.4375,"ymax":54.16243396806779,"spatialReference":{"wkid":4326}}&geometryType=esriGeometryEnvelope&spatialRel=esriSpatialRelIntersects&inSr=4326&geometryPrecision=6&f=json""")
 
     for alink in lstlnks:
+        print(alink)
         response = requests.get(alink)
         if response.status_code == 200:
             data = response.json()
             # store link as filesource
-            fid = loadfilesource(alink,fc,remark='online resource')
-            lid = procesgeom(data,fid)
+            fid = loadfilesource(alink,fc,remark='online resource')[0][0]
+            # procesgeom loads/checks geometry, parameter, and stores all data
+            procesdata(data,fid)
         else:
             print(f"Request failed with status code: {response.status_code}")
     
 
-    # now for each location retrieve the timeseries data.
-    # get a list of shortnames, that is the key
-    tmpl = f"""https://gis.wetterskipfryslan.nl/arcgis/rest/services/Grondwatersite_mpn/MapServer/1/query?outFields=*&orderByFields=MONSTERDATUM&f=json&where=TELEMETRIELOCATIEID='{id}'+AND+MONSTERDATUM+>+date+'2023-01-01+00:00:00'+"""
-    records = session.query(Location).all()
-    for r in records:
-        id = r.shortname
-        ts = requests.get(f"""https://gis.wetterskipfryslan.nl/arcgis/rest/services/Grondwatersite_mpn/MapServer/1/query?outFields=*&orderByFields=MONSTERDATUM&f=json&where=TELEMETRIELOCATIEID='{id}'+AND+MONSTERDATUM+>+date+'2010-01-01+00:00:00'+""")
-        if ts.status_code == 200:
-            tsdata = ts.json()
-            print(id, len(tsdata['features']))
-            for v in range(len(tsdata['features'])):
-                id = tsdata['features'][v]['attributes']['TELEMETRIELOCATIEID']
-                dt = tsdata['features'][v]['attributes']['MONSTERDATUM']
-                date_time_obj = timestamp_to_datetime(dt)
-                vl = tsdata['features'][v]['attributes']['WAARDE']
-                print(id,date_time_obj,vl)
+
 
 
