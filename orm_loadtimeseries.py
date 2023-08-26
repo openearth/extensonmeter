@@ -72,11 +72,11 @@ def resetindex(engine,schema):
         engine.execute(strSql)
         
 if __name__ == "__main__":
-    local = True
+    local = False
     if local:
         fc = r"C:\develop\extensometer\localhost_connection.txt"
     else:
-        fc = r"C:\projecten\nobv\2023\connection_online.txt"
+        fc = r"C:\develop\extensometer\connection_online.txt"
     engine = readcredentials(fc)
     #when multiple schemas
     # schemas = ('subsurface_second')
