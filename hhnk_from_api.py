@@ -31,6 +31,7 @@ import pandas as pd
 import requests
 from datetime import datetime
 import numpy as np
+import configparser
 
 # third party packages
 from sqlalchemy.sql.expression import update
@@ -44,6 +45,24 @@ from ts_helpders import establishconnection, read_config, loadfilesource,locatio
 #------temp paths/things for testing
 path_csv = r'C:\projecten\nobv\2023\code'
 #-------
+
+# %%
+# api key HHNK
+# set up connection via configfile 
+
+configfile = r'C:\projecten\grondwater_monitoring\nobv\2023\apikey\hhnk_config.txt'
+cf = configparser.ConfigParser() 
+cf.read(configfile)      
+
+# Authentication
+username = '__key__'
+password = cf.get('API','apikey')    # API key
+
+json_headers = {
+            "username": username,
+            "password": password,
+            "Content-Type": "application/json",
+        }
 
 # %% 
 #----------------postgresql connection
@@ -69,7 +88,6 @@ def latest_entry(skey):
     r=pd.to_datetime(r) 
     return r 
 
-
 # %% Retrieving data from API and putting in database
 # the url to retrieve the data from, groundwaterstation data 
 ground = "https://hhnk.lizard.net/api/v4/groundwaterstations/"
@@ -79,7 +97,7 @@ tsv=[]
 timeurllist= []
 
 #retrieve information about the different groundwater stations, this loops through all the pages
-response = requests.get(ground).json()
+response = requests.get(ground, headers=json_headers).json()
 groundwater = response['results']
 while response["next"]:
     response = requests.get(response["next"]).json()
@@ -91,6 +109,7 @@ while response["next"]:
         #creation of a metadata dict to store the data
         if response['results'][i].get("filters") is not None:  #looks if key 'filters'is filled, if not, it skips the entry
             for j in range(len(response['results'][i].get('filters'))):
+                
                 if response['results'][i]['filters'][j].get('timeseries') == []: #some fill in filters but not timeseries so sort for that
                     continue
                 else:
@@ -101,15 +120,36 @@ while response["next"]:
 
                         #new call to retrieve timeseries
                         tsresponse = requests.get(ts).json()
-                        start = tsresponse['start']
-                        end= tsresponse['end']
 
-                        if start is not None or end is not None:
-                            params = {'start': start, 'end': end}
-                            t = requests.get(ts + 'events', params=params).json()['results']
+                        #start = tsresponse['start']
+                        #end= tsresponse['end']
+                        params={'value__isnull': False}
+
+                        #if start is not None or end is not None:
+                            #params = {'start': start, 'end': end}
+                        t = requests.get(ts + 'events', params=params).json()['results']
+                        print(t)
                         #only retrieving data which has a flag below five, flags are added next to the timeseries
                         #this is why we first need to extract all timeseries before we can filter on flags... 
                         #for flags see: https://publicwiki.deltares.nl/display/FEWSDOC/D+Time+Series+Flags
+                        metadata= {
+                                'locatie.naam' : response['results'][i]['filters'][j]['code'], 
+                                'aquifer_confinement' :response['results'][i]['filters'][j]['aquifer_confinement'],
+                                'filter_bottom_level':response['results'][i]['filters'][j]['filter_bottom_level'],
+                                'filter_top_level':response['results'][i]['filters'][j]['filter_top_level'],
+                                'top_level' :response['results'][i]['filters'][j]['top_level'],
+                                'x' : geom["coordinates"][0],
+                                'y' : geom["coordinates"][1],
+                                'url': response['results'][i]['url'],
+                                'station_type' : response['results'][i]['station_type']
+                                }
+
+                        ts = response['results'][i]['filters'][0]['timeseries'][0]
+                        timeurllist.append([ts])
+                        #conversion to df
+                        gdata.append(metadata)
+                        df = pd.DataFrame(gdata)
+                                            
                             if t[i]['flag']<5:
                                 fskey = loadfilesource(response['results'][i]['url'],fc)
                                 locationkey=location(fc=fc, 

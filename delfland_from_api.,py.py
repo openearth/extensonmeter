@@ -31,6 +31,7 @@ import pandas as pd
 import requests
 from datetime import datetime
 import numpy as np
+import configparser
 
 # third party packages
 from sqlalchemy.sql.expression import update
@@ -68,7 +69,20 @@ def latest_entry(skey):
     r = engine.execute(stmt).fetchall()[0][0]
     r=pd.to_datetime(r) 
     return r 
+# %%
+configfile = r'C:\projecten\grondwater_monitoring\nobv\2023\apikey\delfland_config.txt'
+cf = configparser.ConfigParser() 
+cf.read(configfile)      
 
+# Authentication
+username = '__key__'
+password = cf.get('API','apikey')    # API key
+
+json_headers = {
+            "username": username,
+            "password": password,
+            "Content-Type": "application/json",
+        }
 
 # %% Retrieving data from API and putting in database
 # the url to retrieve the data from, groundwaterstation data 
@@ -101,12 +115,27 @@ while response["next"]:
 
                         #new call to retrieve timeseries
                         tsresponse = requests.get(ts).json()
-                        start = tsresponse['start']
-                        end= tsresponse['end']
+                        params={'value__isnull': False}
 
-                        if start is not None or end is not None:
-                            params = {'start': start, 'end': end}
-                            t = requests.get(ts + 'events', params=params).json()['results']
+                        metadata= {
+                                'locatie.naam' : response['results'][i]['filters'][j]['code'], 
+                                'aquifer_confinement' :response['results'][i]['filters'][j]['aquifer_confinement'],
+                                'filter_bottom_level':response['results'][i]['filters'][j]['filter_bottom_level'],
+                                'filter_top_level':response['results'][i]['filters'][j]['filter_top_level'],
+                                'top_level' :response['results'][i]['filters'][j]['top_level'],
+                                'x' : geom["coordinates"][0],
+                                'y' : geom["coordinates"][1],
+                                'url': response['results'][i]['url'],
+                                'station_type' : response['results'][i]['station_type']
+                                }
+
+                        #ts = response['results'][i]['filters'][0]['timeseries'][0]
+                        #timeurllist.append([ts])
+                        #conversion to df
+                        gdata.append(metadata)
+                        df = pd.DataFrame(gdata)
+
+                        t = requests.get(ts + 'events', params=params).json()['results']
                         #only retrieving data which has a flag below five, flags are added next to the timeseries
                         #this is why we first need to extract all timeseries before we can filter on flags... 
                         #for flags see: https://publicwiki.deltares.nl/display/FEWSDOC/D+Time+Series+Flags
