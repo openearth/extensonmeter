@@ -82,7 +82,7 @@ if __name__ == "__main__":
     # schemas = ('subsurface_second')
     # for schema in schemas:
     #     checkschema(engine,schema)
-    lschema = ('timeseries',)
+    lschema = ('gwmonitoring',)
     for schema in lschema:
         checkschema(engine,schema)
     # format is #postgres://user:password@hostname/database (in this case hydrodb)    
