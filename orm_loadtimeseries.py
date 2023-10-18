@@ -41,7 +41,7 @@ PostgreSQL/PostGIS
 from sqlalchemy import create_engine
 
 ## Declare a Mapping to the database
-from orm_timeseries_hhnk import Base
+from orm_timeseries_delf import Base
 
 def checkschema(engine,schema):
     strsql = 'create schema if not exists {s}'.format(s=schema)
@@ -64,11 +64,11 @@ def dropdb(engine):
     Base.metadata.drop_all(engine)
 
 def resetindex(engine,schema):
-    strsql = """SELECT tablename, indexname, indexdef FROM pg_indexes WHERE schemaname = 'hdsrtimeseries' ORDER BY tablename,indexname;"""
+    strsql = """SELECT tablename, indexname, indexdef FROM pg_indexes WHERE schemaname = 'delftimeseries' ORDER BY tablename,indexname;"""
     lst = engine.execute(strsql)
     for i in lst:
         print(i.tablename,i.indexname)
-        strSql = """ALTER SEQUENCE hdsrtimeseries.{indx} RESTART WITH 1""".format(indx=i.indexname)
+        strSql = """ALTER SEQUENCE delftimeseries.{indx} RESTART WITH 1""".format(indx=i.indexname)
         engine.execute(strSql)
         
 if __name__ == "__main__":
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     # schemas = ('subsurface_second')
     # for schema in schemas:
     #     checkschema(engine,schema)
-    lschema = ('hhnktimeseries',)
+    lschema = ('delftimeseries',)
     for schema in lschema:
         checkschema(engine,schema)
     # format is #postgres://user:password@hostname/database (in this case hydrodb)    
