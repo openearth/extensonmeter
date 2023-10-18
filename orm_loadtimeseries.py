@@ -41,7 +41,7 @@ PostgreSQL/PostGIS
 from sqlalchemy import create_engine
 
 ## Declare a Mapping to the database
-from orm_timeseries import Base
+from orm_timeseries_hhnk import Base
 
 def checkschema(engine,schema):
     strsql = 'create schema if not exists {s}'.format(s=schema)
@@ -64,25 +64,25 @@ def dropdb(engine):
     Base.metadata.drop_all(engine)
 
 def resetindex(engine,schema):
-    strsql = """SELECT tablename, indexname, indexdef FROM pg_indexes WHERE schemaname = 'timeseries' ORDER BY tablename,indexname;"""
+    strsql = """SELECT tablename, indexname, indexdef FROM pg_indexes WHERE schemaname = 'hdsrtimeseries' ORDER BY tablename,indexname;"""
     lst = engine.execute(strsql)
     for i in lst:
         print(i.tablename,i.indexname)
-        strSql = """ALTER SEQUENCE timeseries.{indx} RESTART WITH 1""".format(indx=i.indexname)
+        strSql = """ALTER SEQUENCE hdsrtimeseries.{indx} RESTART WITH 1""".format(indx=i.indexname)
         engine.execute(strSql)
         
 if __name__ == "__main__":
-    local = False
+    local = True
     if local:
-        fc = r"C:\develop\extensometer\localhost_connection.txt"
+        fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_local_somers.txt"
     else:
-        fc = r"C:\develop\extensometer\connection_online.txt"
+        fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_online_qsomers.txt"
     engine = readcredentials(fc)
     #when multiple schemas
     # schemas = ('subsurface_second')
     # for schema in schemas:
     #     checkschema(engine,schema)
-    lschema = ('gwmonitoring',)
+    lschema = ('hhnktimeseries',)
     for schema in lschema:
         checkschema(engine,schema)
     # format is #postgres://user:password@hostname/database (in this case hydrodb)    

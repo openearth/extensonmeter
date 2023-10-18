@@ -43,7 +43,7 @@ from sqlalchemy import exc,func
 from sqlalchemy.dialects import postgresql
 
 # local procedures
-from orm_timeseries import Base,FileSource,Location,Parameter,Unit,TimeSeries,TimeSeriesValuesAndFlags,Flags
+from orm_timeseries_hdsr import Base,FileSource,Location,Parameter,Unit,TimeSeries,TimeSeriesValuesAndFlags,Flags
 from ts_helpders import establishconnection, read_config, loadfilesource,location,sparameter,sserieskey,sflag,dateto_integer,convertlttodate, stimestep
 
 #------temp paths/things for testing
@@ -55,11 +55,11 @@ path_csv = r'C:\projecten\nobv\2023\code'
 # data is stored in PostgreSQL/PostGIS database. A connection string is needed to interact with the database. This is typically stored in
 # a file.
 
-local = True
+local = False
 if local:
     fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_local_somers.txt"
 else:
-    fc = r"C:\projecten\grondwater_monitoring\ijmuiden\connection_online.txt"
+    fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_online_qsomers.txt"
 session,engine = establishconnection(fc)
 
 #Functions
@@ -123,48 +123,52 @@ while response["next"]:
         #gdata.append(metadata)
         #df = pd.DataFrame(gdata
 
+        #does this part when the response is not empty
         if response['results'][i]['timeseries']:
             ts = response['results'][i]['timeseries'][0]
 
             #new call to retrieve timeseries
             tsresponse = requests.get(ts).json()
-            params={'value__isnull': False, 'time__gte':'2010-01-01T00:00:00Z'}
+            params={'value__isnull': False, 
+                    'time__gte':'2013-01-01T00:00:00Z'
+                    }
             t = requests.get(ts + 'events', params=params,headers=json_headers).json()['results']
             #only retrieving data which has a flag below four, flags are added next to the timeseries
             #this is why we first need to extract all timeseries before we can filter on flags... 
             #for flags see: https://publicwiki.deltares.nl/display/FEWSDOC/D+Time+Series+Flags
-            if t[i]['flag']<5:
-                pkeygws = sparameter(fc,
-                                    tsresponse['observation_type']['unit'],
-                                    tsresponse['observation_type']['parameter'],
-                                    [tsresponse['observation_type']['unit'], tsresponse['observation_type']['reference_frame']], #unit
-                                    tsresponse['observation_type']['description']
+            if t: 
+                if t[i]['flag']<5:
+                    pkeygws = sparameter(fc,
+                                        tsresponse['observation_type']['unit'],
+                                        tsresponse['observation_type']['parameter'],
+                                        [tsresponse['observation_type']['unit'], tsresponse['observation_type']['reference_frame']], #unit
+                                        tsresponse['observation_type']['description']
+                                        )
+                    flagkey = sflag(fc,
+                                    str(t[i]['flag']),
+                                    'FEWS-flag'
                                     )
-                flagkey = sflag(fc,
-                                str(t[i]['flag']),
-                                'FEWS-flag'
-                                )
-                
-                skeygws = sserieskey(fc, 
-                                    pkeygws, 
-                                    locationkey, 
-                                    fskey[0],
-                                    timestep='nonequidistant'
-                                    )
-                df=pd.DataFrame.from_dict(t)
+                    
+                    skeygws = sserieskey(fc, 
+                                        pkeygws, 
+                                        locationkey, 
+                                        fskey[0],
+                                        timestep='nonequidistant'
+                                        )
+                    df=pd.DataFrame.from_dict(t)
 
-                df['datetime']=pd.to_datetime(df['time'])
+                    df['datetime']=pd.to_datetime(df['time'])
 
-                r=latest_entry(skeygws)
-                if r!=(df['datetime'].iloc[-1]).replace(tzinfo=None):
-                    try:
-                        df.drop(columns=['validation_code', 'comment', 'time', 'last_modified','detection_limit', 'flag'],inplace=True)
-                        df=df.rename(columns = {'value':'scalarvalue'}) #change column
-                        df['timeserieskey'] = skeygws
-                        df['flags'] = flagkey
-                        df.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='hdsrtimeseries')
-                    except:
-                        continue 
+                    r=latest_entry(skeygws)
+                    if r!=(df['datetime'].iloc[-1]).replace(tzinfo=None):
+                        try:
+                            df.drop(columns=['validation_code', 'comment', 'time', 'last_modified','detection_limit', 'flag'],inplace=True)
+                            df=df.rename(columns = {'value':'scalarvalue'}) #change column
+                            df['timeserieskey'] = skeygws
+                            df['flags'] = flagkey
+                            df.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='hdsrtimeseries')
+                        except:
+                            continue 
 
 
         ## here a part to upload the timeseries into the DB
