@@ -59,7 +59,7 @@ from sftp_tools import Sftp
 
 # ------------------------config. making connection to ftp and databases
 # TODO integrate neatly
-local = False
+local = True
 if local:
     fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_local.txt"
 else:
@@ -87,9 +87,10 @@ sf = r'P:\11207812-somers-ontwikkeling\database_grondwater\overzicht_nobv_type1.
 #sf=r'C:\projecten\grondwater_monitoring\ijmuiden\data\peilbuizen_metadata.xlsx'
 fskey = loadfilesource(sf,fc,'metadata')
 df = pd.read_excel(sf)
-df = df.set_axis(['name','diverid','description','category','x','y','tubetop','tubebot','altitude_msl','distance_w','distance_p', 'registered'], axis=1)
-df = df.drop(columns=['category','distance_w','distance_p', 'registered'])
+df = df.set_axis(['name','diverid','description','category','x','y','tubetop','tubebot','altitude_msl','distance_w','distance_p', 'registered', 'remark'], axis=1)
+df = df.drop(columns=['category','distance_w','distance_p', 'registered', 'remark'])
 df['epsgcode'] = 28992
+#TODO TODO change diverid to filterid to fit in the database!!! TODO
 df['diverid'] = df['diverid'].astype('Int64') #convert to Int64 to set data type as int array which can contain null values
 #find location or add to location table
 # before inserting, get latest id
@@ -97,17 +98,16 @@ stmt = """SELECT max(locationkey) from {s}.{t};""".format(s='timeseries',t='loca
 r = engine.execute(stmt).fetchall()[0][0]
 if r is None:
     lid = 1
-    df.index += lid  
-else:
-    lid = r
-    df.index = np.arange(1, (lid+1)) 
+    df.index += lid 
+ 
 df['locationkey']=df.index
 df['filesourcekey']=fskey[0][0]
 
 #if the location table is up to date, it will skip this part. 
 if lid != df["locationkey"].iloc[-1]:
     # store the metadata in the database
-    df.to_sql('location',engine,schema='timeseries',index=None,if_exists='append')
+    subset=df.iloc[lid+1:-1]
+    subset.to_sql('location',engine,schema='timeseries',index=None,if_exists='append')
 
     # update the table set the geometry for those records that have null as geom
     stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='timeseries',t='location')
@@ -135,8 +135,8 @@ sftp = Sftp(
 #lstdir = ['cabauw','bleskensgraaf','berkenwoude', 'gouderak', 'vegelinsoord', 'hazerswoude', 'vlist','zegveld']
 
 #tot zo ver de enige waarvan we zowel metadata als gegevens in een ellitrack portaal hebben
-#lstdir =  ['rouveen']
-lstdir =  ['assendelft','aldeboarn', 'rouveen','vegelinsoord', 'gouderak']
+lstdir =  ['rouveen']
+#lstdir =  ['assendelft','aldeboarn', 'rouveen','vegelinsoord', 'gouderak']
 
 #mogelijk om Berkenwoude, Cabauw, Bleskensgraaf en Hazerswoude toe te voegen maar hier zijn nog geen x en y locaties van bekend dus dit komt later
 
@@ -265,7 +265,7 @@ for dir in lstdir:
         shutil.move(filepath, (os.path.join(ppath,dir)+'\\'+i.filename)) #write to p drive
         
         # na succesvol inladen in de database data van de ftp verwijderen
-        sftp.remove_file(rmpath+i.filename) #delete from ftp
+        #sftp.remove_file(rmpath+i.filename) #delete from ftp
 
 
 #close the connection to SFTP

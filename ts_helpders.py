@@ -43,7 +43,6 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy  import Boolean, Integer, Float, DateTime, String, Text
 from geoalchemy2 import Geometry
 
-
 ## Declare a Mapping to the database
 from orm_timeseries import Base, FileSource, Location, Parameter, Unit, TimeSeries, TimeStep, Flags, Transaction
 

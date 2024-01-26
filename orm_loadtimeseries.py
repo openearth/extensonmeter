@@ -41,7 +41,7 @@ PostgreSQL/PostGIS
 from sqlalchemy import create_engine
 
 ## Declare a Mapping to the database
-from orm_timeseries_delf import Base
+from orm_timeseries_hhnk import Base
 
 def checkschema(engine,schema):
     strsql = 'create schema if not exists {s}'.format(s=schema)
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     # schemas = ('subsurface_second')
     # for schema in schemas:
     #     checkschema(engine,schema)
-    lschema = ('delftimeseries',)
+    lschema = ('hhnktimeseries',)
     for schema in lschema:
         checkschema(engine,schema)
     # format is #postgres://user:password@hostname/database (in this case hydrodb)    

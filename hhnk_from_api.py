@@ -73,7 +73,7 @@ local = True
 if local:
     fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_local_somers.txt"
 else:
-    fc = r"C:\projecten\grondwater_monitoring\ijmuiden\connection_online.txt"
+    fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_online_qsomers.txt"
 session,engine = establishconnection(fc)
 
 #Functions
@@ -104,6 +104,7 @@ while response["next"]:
     groundwater.extend(response["results"])
 
 #start retrieving of the seperate timeseries per groundwaterstation
+#first request is to retrieve the base information of the location and geometry entries
     for i in range(len(response)):
         geom = response['results'][i]['geometry']
         #creation of a metadata dict to store the data
@@ -119,9 +120,10 @@ while response["next"]:
                                     epsg=4326,
                                     description=response['results'][i]['station_type']
                                     )
-                        
+                
+                #here there is a call to find out if there is a timeseries entry is in the filter column
                 if response['results'][i]['filters'][j]['timeseries']: #some fill in filters but not timeseries so sort for that
-                #some filter entries contain up to four timeseries entry, therefore we
+                #some filter entries contain up to four timeseries entries
                 #also need to loop over all the timeseries entries
                     for k in range(len(response['results'][i]['filters'][j]['timeseries'])):
                         if response['results'][i]['filters'][0]['timeseries']:
@@ -131,57 +133,56 @@ while response["next"]:
                             #new call to retrieve timeseries
                             tsresponse = requests.get(ts).json()
 
-                            #start = tsresponse['start']
-                            #end= tsresponse['end']
                             params={'value__isnull': False, 
-                                        'time__gte':'2013-01-01T00:00:00Z'
+                                        'time__gte':'2017-01-01T00:00:00Z',
+                                        'page_size':'100'
                                         }
-                            #if start is not None or end is not None:
-                                #params = {'start': start, 'end': end}
-                            t = requests.get(ts + 'events', params=params).json()['results']
+                            #to get the actual timeseries, we need to call the 'events' parameter
+                            #therefor we need to make a new request, where we can use the parameters which we defined previouslgy
+                            t = requests.get(ts + 'events', params=params).json()
+
                             #only retrieving data which has a flag below five, flags are added next to the timeseries
                             #this is why we first need to extract all timeseries before we can filter on flags... 
                             #for flags see: https://publicwiki.deltares.nl/display/FEWSDOC/D+Time+Series+Flags
+                            if t['results']: 
+                                while t["next"]: #iteration trhough all the different timeseries 
+                                    t = requests.get(t["next"]).json()
+                                    print(t)
+                                    if t['results'][i]['flag']<5:
+                                        pkeygws = sparameter(fc,
+                                                                tsresponse['observation_type']['unit'],
+                                                                tsresponse['observation_type']['parameter'],
+                                                                [tsresponse['observation_type']['unit'], tsresponse['observation_type']['reference_frame']], #unit
+                                                                tsresponse['observation_type']['description']
+                                                                )
+                                        flagkey = sflag(fc,
+                                                        str(t[i]['flag']),
+                                                        'FEWS-flag'
+                                                        )
+                                        
+                                        skeygws = sserieskey(fc, 
+                                                                pkeygws, 
+                                                                locationkey, 
+                                                                fskey[0],
+                                                                timestep='nonequidistant'
+                                                                )
+                                        
+                                        #upload timeseries values and flags data
+                                        #flag is dropped because we need to attach the flagkey
+                                        df=pd.DataFrame.from_dict(t)
 
-                            ts = response['results'][i]['filters'][0]['timeseries'][0]
-                            #conversion to df
-                            #gdata.append(metadata)
-                            #df = pd.DataFrame(gdata)
-                            if t:                    
-                                if t[i]['flag']<5: #only when FEWS flag is below 5
-                                    pkeygws = sparameter(fc,
-                                                            tsresponse['observation_type']['unit'],
-                                                            tsresponse['observation_type']['parameter'],
-                                                            [tsresponse['observation_type']['unit'], tsresponse['observation_type']['reference_frame']], #unit
-                                                            tsresponse['observation_type']['description']
-                                                            )
-                                    flagkey = sflag(fc,
-                                                    str(t[i]['flag']),
-                                                    'FEWS-flag'
-                                                    )
-                                    
-                                    skeygws = sserieskey(fc, 
-                                                            pkeygws, 
-                                                            locationkey, 
-                                                            fskey[0],
-                                                            timestep='nonequidistant'
-                                                            )
-                                    
-                                    #upload timeseries values and flags data
-                                    #flag is dropped because we need to attach the flagkey
-                                    df=pd.DataFrame.from_dict(t)
+                                        df['datetime']=pd.to_datetime(df['time'])
+                                        
+                                        r=latest_entry(skeygws)
+                                        if r!=(df['datetime'].iloc[-1]).replace(tzinfo=None):
+                                            try:
+                                                df.drop(columns=['validation_code', 'comment', 'time', 'last_modified','detection_limit', 'flag'],inplace=True)
+                                                df=df.rename(columns = {'value':'scalarvalue'}) #change column
+                                                df['timeserieskey'] = skeygws
+                                                df['flags'] = flagkey
+                                                df.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='hhnktimeseries')
+                                            except:
+                                                continue 
+                                                    
 
-                                    df['datetime']=pd.to_datetime(df['time'])
-
-                                    r=latest_entry(skeygws)
-                                    if r!=(df['datetime'].iloc[-1]).replace(tzinfo=None):
-                                        try:
-                                            df.drop(columns=['validation_code', 'comment', 'time', 'last_modified','detection_limit', 'flag'],inplace=True)
-                                            df=df.rename(columns = {'value':'scalarvalue'}) #change column
-                                            df['timeserieskey'] = skeygws
-                                            df['flags'] = flagkey
-                                            df.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='hhnktimeseries')
-                                        except:
-                                            continue 
-
-# %%
+    # %%
