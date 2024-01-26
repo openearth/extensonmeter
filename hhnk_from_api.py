@@ -82,7 +82,7 @@ def latest_entry(skey):
     """function to find the lastest timestep entry per skey. 
     input = skey
     output = pandas df containing either none or a date"""
-    stmt="""select max(datetime) from timeseries.timeseriesvaluesandflags
+    stmt="""select max(datetime) from hhnktimeseries.timeseriesvaluesandflags
         where timeserieskey={s};""".format(s=skey)
     r = engine.execute(stmt).fetchall()[0][0]
     r=pd.to_datetime(r) 
@@ -134,7 +134,7 @@ while response["next"]:
                             tsresponse = requests.get(ts).json()
 
                             params={'value__isnull': False, 
-                                        'time__gte':'2017-01-01T00:00:00Z',
+                                        'time__gte':'2018-01-01T00:00:00Z',
                                         'page_size':'100'
                                         }
                             #to get the actual timeseries, we need to call the 'events' parameter
@@ -145,31 +145,30 @@ while response["next"]:
                             #this is why we first need to extract all timeseries before we can filter on flags... 
                             #for flags see: https://publicwiki.deltares.nl/display/FEWSDOC/D+Time+Series+Flags
                             if t['results']: 
-                                while t["next"]: #iteration trhough all the different timeseries 
+                                while t["next"]: #iteration trhough all the different timeseries page, continue as long as there is a next page
                                     t = requests.get(t["next"]).json()
-                                    print(t)
-                                    if t['results'][i]['flag']<5:
-                                        pkeygws = sparameter(fc,
+
+                                    pkeygws = sparameter(fc,
                                                                 tsresponse['observation_type']['unit'],
                                                                 tsresponse['observation_type']['parameter'],
                                                                 [tsresponse['observation_type']['unit'], tsresponse['observation_type']['reference_frame']], #unit
                                                                 tsresponse['observation_type']['description']
                                                                 )
-                                        flagkey = sflag(fc,
-                                                        str(t[i]['flag']),
-                                                        'FEWS-flag'
-                                                        )
-                                        
-                                        skeygws = sserieskey(fc, 
+                                    skeygws = sserieskey(fc, 
                                                                 pkeygws, 
                                                                 locationkey, 
                                                                 fskey[0],
                                                                 timestep='nonequidistant'
                                                                 )
+
+                                    df=pd.DataFrame.from_dict(t['results'])
+                                    df = df[df.flag == 0]
                                         
-                                        #upload timeseries values and flags data
-                                        #flag is dropped because we need to attach the flagkey
-                                        df=pd.DataFrame.from_dict(t)
+                                    if df.flag.size > 0:
+                                        flagkey = sflag(fc,
+                                                        str(df.flag.values[0]),
+                                                        'FEWS-flag'
+                                                        )
 
                                         df['datetime']=pd.to_datetime(df['time'])
                                         
@@ -183,6 +182,3 @@ while response["next"]:
                                                 df.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='hhnktimeseries')
                                             except:
                                                 continue 
-                                                    
-
-    # %%
