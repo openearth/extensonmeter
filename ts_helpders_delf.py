@@ -44,7 +44,7 @@ from sqlalchemy  import Boolean, Integer, Float, DateTime, String, Text
 from geoalchemy2 import Geometry
 
 ## Declare a Mapping to the database
-from orm_timeseries import Base, FileSource, Location, Parameter, Unit, TimeSeries, TimeStep, Flags, Transaction
+from orm_timeseries_delf import Base, FileSource, Location, Parameter, Unit, TimeSeries, TimeStep, Flags, Transaction
 
 def establishconnection(fc):
     """
@@ -176,9 +176,9 @@ def location(fc,fskey,name,x,y,epsg,shortname='',description='',z=0,altitude_msl
             session.add(f)
             session.commit()
             if epsg == 28992:
-                strsql = 'update timeseries.location set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null'
+                strsql = 'update delftimeseries.location set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null'
             else:
-                strsql = 'update timeseries.location set geom = st_transform(st_setsrid(st_point(x,y),epsgcode),28992) where geom is null'
+                strsql = 'update delftimeseries.location set geom = st_transform(st_setsrid(st_point(x,y),epsgcode),28992) where geom is null'
             engine.execute(strsql)
         else:
             print('name already stored in location table', name, f.locationkey)

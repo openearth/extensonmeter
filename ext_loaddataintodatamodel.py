@@ -57,7 +57,7 @@ if local:
     fc = r"C:\projecten\rws\2022\extensometer\connection_local.txt"
 else:
     dirname =  os.path.dirname(__file__)
-    fc = os.path.join(dirname,'aconnection.txt')
+    fc = os.path.join(dirname,'config.txt')
 session,engine = establishconnection(fc)
 
 # ---------------administratie parameters
