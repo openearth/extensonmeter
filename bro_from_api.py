@@ -167,9 +167,6 @@ for i in res:
             dfval.dropna(inplace=True)
             if len(dfval) > 0 and updatedb:
                 for i, r in dfval.iterrows():
-                    print(
-                        r["datetime"], r["scalarvalue"], r["timeserieskey"], r["flags"]
-                    )
                     date_time_obj = r["datetime"]
                     vl = r["scalarvalue"]
                     flagid = r["flags"]
@@ -182,6 +179,13 @@ for i in res:
                         .first()
                     )
                     if anid == None:
+                        print(
+                            "adding:",
+                            r["datetime"],
+                            r["scalarvalue"],
+                            r["timeserieskey"],
+                            r["flags"],
+                        )
                         insert = tsv(
                             timeserieskey=sid,
                             datetime=date_time_obj,
