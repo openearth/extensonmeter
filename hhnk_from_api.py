@@ -64,12 +64,7 @@ json_headers = {
             "Content-Type": "application/json",
         }
 
-# %% 
-#----------------postgresql connection
-# data is stored in PostgreSQL/PostGIS database. A connection string is needed to interact with the database. This is typically stored in
-# a file.
-
-local = True
+local = False
 if local:
     fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_local_somers.txt"
 else:
@@ -118,7 +113,10 @@ while response["next"]:
                                     x=geom["coordinates"][0],
                                     y=geom["coordinates"][1],
                                     epsg=4326,
-                                    description=response['results'][i]['station_type']
+                                    description=response['results'][i]['station_type'],
+                                    altitude_msl = response['results'][i]['filters'][j]['top_level'],
+                                    tubetop = response['results'][i]['filters'][j]['filter_top_level'],
+                                    tubebot = response['results'][i]['filters'][j]['filter_bottom_level']
                                     )
                 
                 #here there is a call to find out if there is a timeseries entry is in the filter column
@@ -182,3 +180,4 @@ while response["next"]:
                                                 df.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='hhnktimeseries')
                                             except:
                                                 continue 
+# %%
