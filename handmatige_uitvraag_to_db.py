@@ -34,6 +34,7 @@ import pandas as pd
 import configparser
 import glob
 import numpy as np
+import matplotlib.pyplot as plt
 
 # third party packages
 from sqlalchemy.sql.expression import update
@@ -51,16 +52,6 @@ def read_config(af):
     cf.read(af)
     return cf
 
-# set reference to config file
-local = True
-if local:
-    fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_local_somers.txt"
-else:
-    fc = r"C:\develop\rwsdatatools\config_chloride_rpa.txt"
-session,engine = establishconnection(fc)
-
-#Functions
-#function to find latest entry 
 def latest_entry(skey):
     """function to find the lastest timestep entry per skey. 
     input = skey
@@ -70,6 +61,76 @@ def latest_entry(skey):
     r = engine.execute(stmt).fetchall()[0][0]
     r=pd.to_datetime(r) 
     return r 
+
+def check_fc(skey):
+    """function to check if a certain waterschap is already in the location table """
+    stmt="""select max(datetime) from waterschappen_timeseries.timeseriesvaluesandflags
+        where timeserieskey={s};""".format(s=skey)
+    r = engine.execute(stmt).fetchall()[0][0]
+    r=pd.to_datetime(r) 
+    return r 
+
+prefixes = [">", "#", "*", "$"]
+dntusecol = ["mex", "chflysi", "mexb"]
+
+
+def skiprows(fname):
+    """function that gathers columnnames and determines the header size in records
+
+    Args:
+        fname (string): full pathname to a file that will be checked for columnnames and the size of the header
+
+    Returns:
+        skiprows (integer): integer indicating the size of the header in number of records to skip
+        columnnames (list of strings): list of strings that represent columnames
+        xycols (list of strings): list of strings that inidicate xy coords columns
+    """
+    columnnames = []
+    xycols = []
+    skiprows = 0
+    datum = None
+    with open(fname, "r+") as f:
+        for line in f:
+            if line.startswith(tuple(prefixes)):
+                if line.startswith("*"):
+                    datum = line.replace("*", "").strip()
+                if line.startswith(">"):
+                    colname = line.replace("> ", ">").split(" ")[0].split(">")[1]
+                    # print(colname)
+                    if "x" in colname.lower():
+                        if colname.lower() not in dntusecol:
+                            xycols.append("x")
+                            columnnames.append("x")
+                        else:
+                            columnnames.append(colname.replace("\n", ""))
+                    elif "y" in colname.lower():
+                        if colname.lower() not in dntusecol:
+                            xycols.append("y")
+                            columnnames.append("y")
+                        else:
+                            columnnames.append(colname.replace("\n", ""))
+                    elif "tijd" in colname.lower():
+                        xycols.append(colname.replace("\n", "").lower())
+                        columnnames.append(colname.replace("\n", ""))
+                    elif "fout" in colname.lower():
+                        columnnames.append(line.replace("\n", "").split(" ")[2] + "f")
+                    else:
+                        columnnames.append(colname.replace("\n", ""))
+                skiprows = skiprows + 1
+            else:
+                break
+    return skiprows, columnnames, xycols, datum
+
+#TODO write function to check whether metadata has already been uploaded
+
+# set reference to config file
+local = True
+if local:
+    fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_local_somers.txt"
+else:
+    fc = r"C:\develop\rwsdatatools\config_chloride_rpa.txt"
+session,engine = establishconnection(fc)
+
 
 #first push to the location table 
 #db is qsomers, schema is hand_timeseries
@@ -86,65 +147,96 @@ tstkeye = stimestep(session,'nonequidistant','')
 flagkeygwm=sflag(fc,'Grondwatermeetpuntt-ruwe data', 'Grondwatermeetpunt-ruwe data')
 flagkeyswm=sflag(fc,'Slootwatermeetpunt-ruwe data', 'Slootwatermeetpunt-ruwe data')
 
+#give root folder, if all files are in the same format, it should 
 root = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden'
 
 #location table
 subdir = []
 for root,subdirs,files in os.walk(root):    
     for file in files:
-        if file == "SAMENVATTENDE_TABEL.txt":
-            df = pd.read_csv(os.path.join(root, file), delimiter=';')
-            df = df.drop(columns = ['lat', 'lon', 'attributes', 'description'])
-            df = df.rename(columns={'locationId': 'name', 
-                                    'TYPE': 'description',
-                                    'shortName': 'shortname'})
-            df['epsgcode'] = 28992
-            sf = os.path.join(root, file)
-            ws = os.path.join(root, file).split("\\")[-3] #find the waterschap
-            fskey = loadfilesource(sf,fc, str(ws) +'_metadata')
-            df['locationkey']=df.index
-            df['filesourcekey']=fskey[0][0] 
+        if file.lower().endswith(".txt"):
+            if file == "SAMENVATTENDE_TABEL.txt": #if all metadatafiles recieve the same name
+                #differenciate between the GWM metadata and the SWM metadata
+                #part below is specifically for the SWM metadata
+                #TODO write part for the GWM metadata
+                df = pd.read_csv(str(os.path.join(root, file)), delimiter=';')
+                dfs = df.query('TYPE == "SWM"')
+                dfg = df.query('TYPE == "GWM"')
+                if dfs['TYPE'].unique()[0] == 'SWM':
+                    dfs = dfs.drop(columns = ['lat', 'lon', 'attributes', 'description'])
+                    dfs = dfs.rename(columns={'locationId': 'name', 
+                                            'TYPE': 'description',
+                                            'shortName': 'shortname'})
+                    dfs['epsgcode'] = 28992
+                    sf = str(os.path.join(root, file))
+                    ws = str(os.path.join(root, file).split("\\")[-3]) #find the waterschap in the path
+                    fskey = loadfilesource(sf,fc, f"{ws}_metadata") #load filesourcekey
+                    dfs['locationkey']=dfs.index
+                    dfs['filesourcekey']=fskey[0][0] 
 
-            metadata=df
+                    # before uploading, we need to check if the metadata from this waterschap is already in the database
+                    # if it is, it can be skipped, if it is not, it needs to be uploaded. 
+                    # if new data is uploaded, the locationkey needs to be set accordingly
 
-            # df.to_sql('location',engine,schema='waterschappen_timeseries',index=None,if_exists='append')
+                    #build in that the metadatafile is not updated when the entries are already there 
 
-            # update the table set the geometry for those records that have null as geom
-            # stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='waterschappen_timeseries',t='location')
-            # engine.execute(stmt)
-        
-        elif file == 'SWM_Meetlocatie_OW000001.txt':
-            name=os.path.splitext(file)[0].split("_", 1)[1]
-            data=file.split("_")[0] #find in name it is GWM or SWM
+                    # dfs.to_sql('location',engine,schema='waterschappen_timeseries',index=None,if_exists='append')
 
-            fskey = loadfilesource(os.path.join(root, file),fc,str(ws) + str(type))
-            header = pd.read_csv(os.path.join(root, file), sep=";", nrows=5) 
-            cols = [header.iloc[3,0] , header.iloc[4,0]]
-            dfx = pd.read_csv(os.path.join(root, file), delimiter=';', skiprows=6, header = None, names = cols)
+                    # # update the table set the geometry for those records that have null as geom
+                    # stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='waterschappen_timeseries',t='location')
+                    # engine.execute(stmt)
+                elif dfg['TYPE'].unique()[0] == 'GWM':
+                    print('todo still')
+                else:
+                    print('Data is not classified as GWM or SWM, Please find more information')
+                
+            
+            #this is for updating the timeseries
+            else: #use try-except clause so the program continues running but prints which names are not updated
+                try:
+                    name=os.path.splitext(file)[0].split("_", 1)[1]
+                    data=file.split("_")[0] #find in name it is GWM or SWM
+                    thefile= os.path.join(root, file)
+                    nrrows, colnames, xycols, datum = skiprows(thefile)
 
-            locationkey= list(metadata.loc[metadata['name'] == name, 'locationkey'])
+                    fskey = loadfilesource(thefile,fc,f"{name}_{data}")
+                    # header = pd.read_csv(os.path.join(root, file), sep=";", nrows=5) 
+                    # cols = [header.iloc[3,0] , header.iloc[4,0]]
+                    dfx = pd.read_csv(thefile, delimiter=';', skiprows=nrrows, header = None, names = colnames)
 
-            if data == 'SWM':
-                skeyz = sserieskey(fc, pkeyswm, locationkey[0], fskey[0],timestep='nonequidistant')
-                flag = flagkeyswm
-            elif data == 'GWM':
-                skeyz = sserieskey(fc, pkeygwm, locationkey[0], fskey[0],timestep='nonequidistant')
-                flag = flagkeygwm
-            else:
-                print('Different serieskey and / or flagkey needed')
+                    #find the corresponding locationkey with the file name
+                    locationkey= list(df.loc[df['name'] == name, 'locationkey'])
 
-            dfx.rename(columns = {'> datumtijd (dd-mm-yyyy HH:MM)':'datetime',
-                                  '> slootwaterstand (m NAP)':'scalarvalue',}, inplace = True)
-            dfx['datetime'] = pd.to_datetime(dfx['datetime']) 
-            dfx=dfx.dropna()
-            dfx['timeserieskey'] = skeyz 
-            dfx['flags' ] = flag
+                    #to assign the correct serieskey and flagkey according to the type of data
+                    if data == 'SWM':
+                        skeyz = sserieskey(fc, pkeyswm, locationkey[0], fskey[0],timestep='nonequidistant')
+                        flag = flagkeyswm
+                    elif data == 'GWM':
+                        skeyz = sserieskey(fc, pkeygwm, locationkey[0], fskey[0],timestep='nonequidistant')
+                        flag = flagkeygwm
+                    else:
+                        print('Different serieskey and / or flagkey needed')
 
-            dfx.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='waterschappen_timeseries')
-            # Set the header for the DataFrame
+                    #to check if the timeseries has already been updated in the database or not
+                    r=latest_entry(skeyz)
+                    #TODO check this
+                    dfx.rename(columns = {'> datumtijd (dd-mm-yyyy HH:MM)':'datetime',
+                                        '> slootwaterstand (m NAP)':'scalarvalue',}, inplace = True)
+                    dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y %H:%M') 
+                    dfx=dfx.dropna()
+
+                    #only update if the 
+                    if r!=dfx['datetime'].iloc[-1]:
+                        dfx['timeserieskey'] = skeyz 
+                        dfx['flags' ] = flag
+                        dfx.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='waterschappen_timeseries')
+                    else:
+                        print('not updating')
+                #plotting random timeseries from the list of files, not plotting every time (max 5 plots)
+                except Exception as e:
+                    print(f"Not updating {name} due to: An error occurred: {e}")
          
-            #needs to be linked to location key
-            #assign flag (ruwe data)
+
             #plot een aantal random tijdseries en sla op
 
         
