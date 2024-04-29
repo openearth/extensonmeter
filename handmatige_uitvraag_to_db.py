@@ -63,6 +63,7 @@ def latest_entry(skey):
     return r 
 
 def check_fc(skey):
+    #TODO finish function
     """function to check if a certain waterschap is already in the location table """
     stmt="""select max(datetime) from waterschappen_timeseries.timeseriesvaluesandflags
         where timeserieskey={s};""".format(s=skey)
@@ -159,7 +160,9 @@ for root,subdirs,files in os.walk(root):
                 #differenciate between the GWM metadata and the SWM metadata
                 #part below is specifically for the SWM metadata
                 #TODO write part for the GWM metadata
-                df = pd.read_csv(str(os.path.join(root, file)), delimiter=';')
+                #TODO rewrite, this part does not work in the way I anticipated
+                tabel = os.path.join(root, file)
+                df = pd.read_csv(tabel, delimiter=';')
                 dfs = df.query('TYPE == "SWM"')
                 dfg = df.query('TYPE == "GWM"')
                 if dfs['TYPE'].unique()[0] == 'SWM':
@@ -180,11 +183,12 @@ for root,subdirs,files in os.walk(root):
 
                     #build in that the metadatafile is not updated when the entries are already there 
 
-                    # dfs.to_sql('location',engine,schema='waterschappen_timeseries',index=None,if_exists='append')
+                    dfs.to_sql('location',engine,schema='waterschappen_timeseries',index=None,if_exists='append')
 
                     # # update the table set the geometry for those records that have null as geom
-                    # stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='waterschappen_timeseries',t='location')
-                    # engine.execute(stmt)
+                    stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='waterschappen_timeseries',t='location')
+                    engine.execute(stmt)
+
                 elif dfg['TYPE'].unique()[0] == 'GWM':
                     print('todo still')
                 else:
@@ -205,7 +209,7 @@ for root,subdirs,files in os.walk(root):
                     dfx = pd.read_csv(thefile, delimiter=';', skiprows=nrrows, header = None, names = colnames)
 
                     #find the corresponding locationkey with the file name
-                    locationkey= list(df.loc[df['name'] == name, 'locationkey'])
+                    locationkey= list(dfs.loc[dfs['name'] == name, 'locationkey'])
 
                     #to assign the correct serieskey and flagkey according to the type of data
                     if data == 'SWM':
@@ -220,12 +224,12 @@ for root,subdirs,files in os.walk(root):
                     #to check if the timeseries has already been updated in the database or not
                     r=latest_entry(skeyz)
                     #TODO check this
-                    dfx.rename(columns = {'> datumtijd (dd-mm-yyyy HH:MM)':'datetime',
-                                        '> slootwaterstand (m NAP)':'scalarvalue',}, inplace = True)
+                    dfx.columns.values[0] = "datetime"
+                    dfx.columns.values[1] = "scalarvalue"
                     dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y %H:%M') 
                     dfx=dfx.dropna()
 
-                    #only update if the 
+                    #only update if the timeseries has not been updated into the database so far
                     if r!=dfx['datetime'].iloc[-1]:
                         dfx['timeserieskey'] = skeyz 
                         dfx['flags' ] = flag
