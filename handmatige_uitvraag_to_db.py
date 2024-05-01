@@ -122,6 +122,17 @@ def skiprows(fname):
                 break
     return skiprows, columnnames, xycols, datum
 
+def find_samenvattende_tabel(all_files):
+    """
+    Find the path of the 'SAMENVATTENDE_TABEL.txt' file in the list of files.
+    
+    Returns:
+        str or None: Path of the 'SAMENVATTENDE_TABEL.txt' file if found, None otherwise.
+    """
+    for file_path in all_files:
+        if os.path.basename(file_path) == "SAMENVATTENDE_TABEL.txt":
+            return file_path
+
 #TODO write function to check whether metadata has already been uploaded
 
 # set reference to config file
@@ -152,94 +163,101 @@ flagkeyswm=sflag(fc,'Slootwatermeetpunt-ruwe data', 'Slootwatermeetpunt-ruwe dat
 root = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden'
 
 #location table
-subdir = []
+all_files = []
 for root,subdirs,files in os.walk(root):    
     for file in files:
         if file.lower().endswith(".txt"):
-            if file == "SAMENVATTENDE_TABEL.txt": #if all metadatafiles recieve the same name
-                #differenciate between the GWM metadata and the SWM metadata
-                #part below is specifically for the SWM metadata
-                #TODO write part for the GWM metadata
-                #TODO rewrite, this part does not work in the way I anticipated
-                tabel = os.path.join(root, file)
-                df = pd.read_csv(tabel, delimiter=';')
-                dfs = df.query('TYPE == "SWM"')
-                dfg = df.query('TYPE == "GWM"')
-                if dfs['TYPE'].unique()[0] == 'SWM':
-                    dfs = dfs.drop(columns = ['lat', 'lon', 'attributes', 'description'])
-                    dfs = dfs.rename(columns={'locationId': 'name', 
-                                            'TYPE': 'description',
-                                            'shortName': 'shortname'})
-                    dfs['epsgcode'] = 28992
-                    sf = str(os.path.join(root, file))
-                    ws = str(os.path.join(root, file).split("\\")[-3]) #find the waterschap in the path
-                    fskey = loadfilesource(sf,fc, f"{ws}_metadata") #load filesourcekey
-                    dfs['locationkey']=dfs.index
-                    dfs['filesourcekey']=fskey[0][0] 
+            all_files.append(os.path.join(root, file))
 
-                    # before uploading, we need to check if the metadata from this waterschap is already in the database
-                    # if it is, it can be skipped, if it is not, it needs to be uploaded. 
-                    # if new data is uploaded, the locationkey needs to be set accordingly
+# Find the path of "SAMENVATTENDE_TABEL.txt"
 
-                    #build in that the metadatafile is not updated when the entries are already there 
+samenvattende_tabel_path = find_samenvattende_tabel(all_files)
+if samenvattende_tabel_path: #if all metadatafiles recieve the same name
+    #differenciate between the GWM metadata and the SWM metadata
+    #part below is specifically for the SWM metadata
+    #TODO write part for the GWM metadata
+    #TODO rewrite, this part does not work in the way I anticipated
+    df = pd.read_csv(samenvattende_tabel_path, delimiter=';')
+    dfs = df.query('TYPE == "SWM"')
+    dfg = df.query('TYPE == "GWM"')
+    if dfs['TYPE'].unique()[0] == 'SWM':
+        dfs = dfs.drop(columns = ['lat', 'lon', 'attributes', 'description'])
+        dfs = dfs.rename(columns={'locationId': 'name', 
+                                'TYPE': 'description',
+                                'shortName': 'shortname'})
+        dfs['epsgcode'] = 28992
+        sf = samenvattende_tabel_path
+        ws = str(os.path.join(root, file).split("\\")[-3]) #find the waterschap in the path
+        fskey = loadfilesource(sf,fc, f"{ws}_metadata") #load filesourcekey
+        dfs['locationkey']=dfs.index
+        dfs['filesourcekey']=fskey[0][0] 
 
-                    dfs.to_sql('location',engine,schema='waterschappen_timeseries',index=None,if_exists='append')
+        # before uploading, we need to check if the metadata from this waterschap is already in the database
+        # if it is, it can be skipped, if it is not, it needs to be uploaded. 
+        # if new data is uploaded, the locationkey needs to be set accordingly
 
-                    # # update the table set the geometry for those records that have null as geom
-                    stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='waterschappen_timeseries',t='location')
-                    engine.execute(stmt)
+        #build in that the metadatafile is not updated when the entries are already there 
 
-                elif dfg['TYPE'].unique()[0] == 'GWM':
-                    print('todo still')
-                else:
-                    print('Data is not classified as GWM or SWM, Please find more information')
+        # dfs.to_sql('location',engine,schema='waterschappen_timeseries',index=None,if_exists='append')
+
+        # # update the table set the geometry for those records that have null as geom
+        # stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='waterschappen_timeseries',t='location')
+        # engine.execute(stmt)
+
+    elif dfg['TYPE'].unique()[0] == 'GWM':
+        print('todo still')
+    else:
+        print('Data is not classified as GWM or SWM, Please find more information')
                 
             
-            #this is for updating the timeseries
-            else: #use try-except clause so the program continues running but prints which names are not updated
-                try:
-                    name=os.path.splitext(file)[0].split("_", 1)[1]
-                    data=file.split("_")[0] #find in name it is GWM or SWM
-                    thefile= os.path.join(root, file)
-                    nrrows, colnames, xycols, datum = skiprows(thefile)
+for file_path in all_files:
+    # Skip "SAMENVATTENDE_TABEL.txt" as it has been processed separately
+    if file_path == samenvattende_tabel_path:
+        continue
+    #use try-except clause so the program continues running but prints which names are not updated
+    else:
+        try:
+            name=os.path.basename(file_path).split("_", 1)[1].rsplit('.',1)[0]
+            data=os.path.basename(file_path).split("_", 1)[0] #find in name it is GWM or SWM
+            nrrows, colnames, xycols, datum = skiprows(file_path)
 
-                    fskey = loadfilesource(thefile,fc,f"{name}_{data}")
-                    # header = pd.read_csv(os.path.join(root, file), sep=";", nrows=5) 
-                    # cols = [header.iloc[3,0] , header.iloc[4,0]]
-                    dfx = pd.read_csv(thefile, delimiter=';', skiprows=nrrows, header = None, names = colnames)
+            fskey = loadfilesource(file_path,fc,f"{name}_{data}")
+            # header = pd.read_csv(os.path.join(root, file), sep=";", nrows=5) 
+            # cols = [header.iloc[3,0] , header.iloc[4,0]]
+            dfx = pd.read_csv(file_path, delimiter=';', skiprows=nrrows, header = None, names = colnames)
 
-                    #find the corresponding locationkey with the file name
-                    locationkey= list(dfs.loc[dfs['name'] == name, 'locationkey'])
+            #find the corresponding locationkey with the file name
+            locationkey= list(dfs.loc[dfs['name'] == name, 'locationkey'])
 
-                    #to assign the correct serieskey and flagkey according to the type of data
-                    if data == 'SWM':
-                        skeyz = sserieskey(fc, pkeyswm, locationkey[0], fskey[0],timestep='nonequidistant')
-                        flag = flagkeyswm
-                    elif data == 'GWM':
-                        skeyz = sserieskey(fc, pkeygwm, locationkey[0], fskey[0],timestep='nonequidistant')
-                        flag = flagkeygwm
-                    else:
-                        print('Different serieskey and / or flagkey needed')
+            #to assign the correct serieskey and flagkey according to the type of data
+            if data == 'SWM':
+                skeyz = sserieskey(fc, pkeyswm, locationkey[0], fskey[0],timestep='nonequidistant')
+                flag = flagkeyswm
+            elif data == 'GWM':
+                skeyz = sserieskey(fc, pkeygwm, locationkey[0], fskey[0],timestep='nonequidistant')
+                flag = flagkeygwm
+            else:
+                print('Different serieskey and / or flagkey needed')
 
-                    #to check if the timeseries has already been updated in the database or not
-                    r=latest_entry(skeyz)
-                    #TODO check this
-                    dfx.columns.values[0] = "datetime"
-                    dfx.columns.values[1] = "scalarvalue"
-                    dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y %H:%M') 
-                    dfx=dfx.dropna()
+            #to check if the timeseries has already been updated in the database or not
+            r=latest_entry(skeyz)
+            #TODO check this
+            dfx.columns.values[0] = "datetime"
+            dfx.columns.values[1] = "scalarvalue"
+            dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y %H:%M') 
+            dfx=dfx.dropna()
 
-                    #only update if the timeseries has not been updated into the database so far
-                    if r!=dfx['datetime'].iloc[-1]:
-                        dfx['timeserieskey'] = skeyz 
-                        dfx['flags' ] = flag
-                        dfx.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='waterschappen_timeseries')
-                    else:
-                        print('not updating')
-                #plotting random timeseries from the list of files, not plotting every time (max 5 plots)
-                except Exception as e:
-                    print(f"Not updating {name} due to: An error occurred: {e}")
-         
+            #only update if the timeseries has not been updated into the database so far
+            if r!=dfx['datetime'].iloc[-1]:
+                dfx['timeserieskey'] = skeyz 
+                dfx['flags' ] = flag
+                dfx.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='waterschappen_timeseries')
+            else:
+                print('not updating')
+        #plotting random timeseries from the list of files, not plotting every time (max 5 plots)
+        except Exception as e:
+            print(f"Not updating {name} due to: An error occurred: {e}")
+            
 
             #plot een aantal random tijdseries en sla op
 
