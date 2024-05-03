@@ -187,6 +187,33 @@ def storetimeseries(sid, id, flagid, sid2=None):
                 session.commit()
 
 
+def lastgwstage(engine, gwslocation, t, pid, fid):
+    """Retrieves last entrance in the database for the given combination of BROid, filesourckey and paramaterkey
+
+    Args:
+        brolocation (string): location of bro_id, incl. filternumber
+        pid (integer): parameterkey
+        fid (integer): filesourckey
+    """
+    strsql = f"""
+    select max(datetime) from timeseries.location l
+    join timeseries.timeseries ts on ts.locationkey = l.locationkey
+    join timeseries.parameter p on p.parameterkey = ts.parameterkey
+    join timeseries.filesource f on f.filesourcekey = ts.filesourcekey
+    join timeseries.timeseriesvaluesandflags tsf on tsf.timeserieskey = ts.timeserieskey
+    where l.name = '{brolocation}_{t}' and f.filesourcekey = {fid} and p.parameterkey = {pid}
+    """
+    ld = engine.execute(strsql).fetchall()
+    adate = ld[0][0]
+    if adate is None:
+        strdate = None
+    else:
+        adate = adate + timedelta(hours=2)
+        strdate = adate.strftime("%Y-%m-%d")
+        print(brolocation, strdate)
+    return strdate
+
+
 # Function to convert timestamp to datetime
 def timestamp_to_datetime(timestamp):
     """Genereates a valid datetemobject from datatime given in seconds
