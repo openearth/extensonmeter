@@ -42,7 +42,7 @@ import tempfile
 import simplejson as json
 import numpy as np
 from pyproj import Proj, transform
-from owslib.wfs import WebFeatureService
+from owslib.wms import WebMapService
 from owslib.wcs import WebCoverageService
 from osgeo import gdal
 import rasterio
@@ -57,6 +57,25 @@ layername = "dtm_05m"
 cf = r"C:\develop\extensometer\connection_online.txt"
 session, engine = establishconnection(cf)
 
+def testconnection(engine):
+    """Tests a connection and if it fails returns False
+
+    Args:
+        engine (sqlalchemy object): engine configuration
+
+    Returns:
+        Boolean: True if a test is succesfull
+    """
+    strsql = 'SELECT 1'
+    a = True
+    try:
+        engine.execute(strsql)
+    except Exception:
+        print('database not working')
+        a=False
+    finally:
+        return a
+    
 
 # Get a unique temporary file
 def tempfile(tempdir, typen="plot", extension=".html"):
@@ -203,3 +222,117 @@ for tbl in dcttable.keys():
                         DO UPDATE SET
                         mv = {mv}"""
             engine.execute(strsql)
+
+
+# following section uses WMS to find data from Soilmap of the NL, for given locations.
+fclocal = r"C:\develop\extensometer\localhost_connection_somers.txt"
+localsession, localengine = establishconnection(fclocal)
+
+
+def getdatafromdb(x, y):
+    """get point value soilunit
+
+    Args:
+        x (double pecision): longitude
+        y (double pecision): latitude
+
+    Returns:
+        text: soilunit for given point
+    """
+    strsql = f"""SELECT soilunit_code FROM public.soilarea sa 
+    JOIN public.soilarea_soilunit su on su.maparea_id = sa.maparea_id 
+    WHERE st_within(st_geomfromewkt('SRID=28992;POINT({x} {y})'), sa.geom)"""
+    scode = localengine.execute(strsql).fetchone()[0]
+    print(scode)
+
+
+def preptable(tbl, columnname, datatype):
+    """alters a table in the database and adds a column with a specified datatype if not existing
+
+    Args:
+        tbl (text): tablename
+        columnname (text): columnname
+        datatype (text): datatype (i.e. text, double precision, integer, boolean)
+
+    Remark:
+        In case of geometry column write out full datatype e.g. GEOMETRY POINT(28992)
+    """
+    strsql = "alter table {tbl} add column if not exists {columname} {datatype}"
+    engine.execute(strsql)
+    return
+
+for tbl in dcttable.keys():
+    nwtbl = tbl + "_mv"
+    preptable(nwtbl, "soilunit", "text")
+    srid = getsrid(tbl)
+    strsql = f"""select locationkey, 
+            st_x(st_transform(geom,4326)),
+            st_y(st_transform(geom,4326)) from {tbl}"""
+    locwgs84 = engine.execute(strsql).fetchall()
+    for i in range(len(locwgs84)):
+        lockey = locwgs84[i][0]
+        x = locwgs84[i][1]
+        y = locwgs84[i][2]
+        soildata = getdatafromdb(x, y)
+        strsql = f"""insert into {nwtbl} (locationkey, soilunit) 
+                     VALUES ({lockey},{soildata})
+                        ON CONFLICT(locationkey)
+                        DO UPDATE SET
+                        soilunit = {soildata}"""
+        engine.execute(strsql)
+
+
+# following section calculates the width of a parcel based on the geometry
+import geopandas
+from shapely import geometry
+from geoalchemy2.shape import to_shape 
+
+def calculate_parcel_width(geometry):
+    """
+    The width is calculated using the formula for the width of a rectangular parcel.
+    If the parcel is square-shaped, the width will default to NaN, and an alternative
+    calculation method is called.
+    """
+    perimeter = geometry.length
+    area = geometry.area
+    width = (perimeter - np.sqrt(perimeter**2 - 16 * area)) / 4
+    if np.isnan(width):  # if square
+        width = np.sqrt(area)
+    return width
+
+
+def smooth_geometry(geometry):
+    """
+    This function applies a smoothing operation to the parcel geometry,
+    removing small irregularities that could affect the calculation of its width.
+    """
+    buffer_distance = 10
+    buffered_geometry = geometry.buffer(
+        buffer_distance, 1, join_style=geometry.JOIN_STYLE.mitre
+    )
+    smoothed_geometry = buffered_geometry.buffer(
+        -buffer_distance, 1, join_style=geometry.JOIN_STYLE.mitre
+    )
+    return smoothed_geometry
+
+
+def get_slootafstand(gdf):
+    """
+    Calculate the width of a smoothed parcel add as column to existing GeoDataFrame.
+    """
+    gdf.loc[:, "smoothed"] = gdf["geometry"].apply(smooth_geometry)
+    gdf.loc[:, "Sloot_afstand_m"] = gdf["smoothed"].apply(calculate_parcel_width)
+    gdf = gdf.drop("smoothed", axis=1)
+    return gdf
+
+# for every point
+# get peatparcel and put in a shapely geometry
+x = 153313
+y = 446205
+for tbl in dcttable.keys():
+    nwtbl = tbl + "_mv"
+    preptable(nwtbl, "perceelbreedte", "double precision")
+    preptable(nwtbl, "slootafstand", "double precision")
+    srid = getsrid(tbl)
+    tblpeat = 
+    strsql = f"""select geom from {tblpeat} where st_within(st_geomfromewkt('SRID=28992;POINT({x} {y})'), geom)"""
