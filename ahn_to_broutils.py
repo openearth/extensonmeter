@@ -49,7 +49,7 @@ import rasterio
 
 ## Utils WCS [from fast]
 from utils_wcs import *
-from ts_helpders import establishconnection
+from ts_helpders import establishconnection, testconnection
 
 # globals
 geoserver_url = "https://service.pdok.nl/rws/ahn/wcs/v1_0"
@@ -57,25 +57,8 @@ layername = "dtm_05m"
 cf = r"C:\develop\extensometer\connection_online.txt"
 session, engine = establishconnection(cf)
 
-def testconnection(engine):
-    """Tests a connection and if it fails returns False
-
-    Args:
-        engine (sqlalchemy object): engine configuration
-
-    Returns:
-        Boolean: True if a test is succesfull
-    """
-    strsql = 'SELECT 1'
-    a = True
-    try:
-        engine.execute(strsql)
-    except Exception:
-        print('database not working')
-        a=False
-    finally:
-        return a
-    
+if not testconnection(engine):
+    print('Connecting to database failed')
 
 # Get a unique temporary file
 def tempfile(tempdir, typen="plot", extension=".html"):
