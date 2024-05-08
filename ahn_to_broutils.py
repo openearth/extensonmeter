@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 # Copyright notice
 #   --------------------------------------------------------------------
-#   Copyright (C) 2016 Deltares
-#       Joan Sala
-#
-#       joan.salacalero@deltares.nl
+#   Copyright (C) 2024 Deltares
+#   Gerrit Hendriksen (gerrit.hendriksen@deltares.nl)
 #
 #   This library is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -26,12 +24,12 @@
 # Sign up to recieve regular updates of this function, and to contribute
 # your own tools.
 
-# $Id: emisk_utils.py 14127 2018-01-30 07:21:10Z hendrik_gt $
-# $Date: 2018-01-30 08:21:10 +0100 (Tue, 30 Jan 2018) $
-# $Author: hendrik_gt $
-# $Revision: 14127 $
-# $HeadURL: https://svn.oss.deltares.nl/repos/openearthtools/trunk/python/applications/wps/emisk/emisk_utils.py $
-# $Keywords: $
+# set of functions that gets data for every location available regarding a list of parameters:
+# - derivation of AHN4 surface levels (DTM)
+# - assignment of SOILTYPE from locally loaded SOILMAP
+# - assignment of parcelwidth and distance of ditches?
+# - assignment distance to roads or waterbodies
+
 
 # import math
 import time
@@ -58,7 +56,21 @@ cf = r"C:\develop\extensometer\connection_online.txt"
 session, engine = establishconnection(cf)
 
 if not testconnection(engine):
-    print('Connecting to database failed')
+    print("Connecting to database failed")
+
+# dictionary of tables to check for data in column altitude_msl
+# key = tablename, value = columnname
+# every table is indicating the table with locations and has as value the column
+# that has measured surface elevation
+
+dcttable = {}
+dcttable["gwmonitoring.location"] = "altitude_msl"
+dcttable["hhnktimeseries.location"] = "altitude_msl"
+dcttable["nobv.location"] = "altitude_msl"
+dcttable["hdsrtimeseries.location"] = "altitude_msl"
+dcttable["hhnktimeseries.location"] = "altitude_msl"
+dcttable["timeseries.location"] = "altitude_msl"
+
 
 # Get a unique temporary file
 def tempfile(tempdir, typen="plot", extension=".html"):
@@ -121,6 +133,22 @@ def cut_wcs(
     return outfname
 
 
+def preptable(tbl, columname, datatype):
+    """alters a table in the database and adds a column with a specified datatype if not existing
+
+    Args:
+        tbl (text): tablename
+        columnname (text): columnname
+        datatype (text): datatype (i.e. text, double precision, integer, boolean)
+
+    Remark:
+        In case of geometry column write out full datatype e.g. GEOMETRY POINT(28992)
+    """
+    strsql = f"ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS {columname} {datatype}"
+    engine.execute(strsql)
+    return
+
+
 def getsrid(tbl):
     """Retrieve srid of specific table
 
@@ -162,24 +190,13 @@ def getmv4point(x, y):
     return val
 
 
-# dictionary of tables to check for data in column altitude_msl
-# key = tablename, value = columnname
-
-dcttable = {}
-dcttable["hhnktimeseries.location"] = "altitude_msl"
-dcttable["nobv.location"] = "altitude_msl"
-dcttable["gwmonitoring.location"] = "altitude_msl"
-dcttable["hdsrtimeseries.location"] = "altitude_msl"
-dcttable["hhnktimeseries.location"] = "altitude_msl"
-dcttable["timeseries.location"] = "altitude_msl"
-
 # Get locations from database
 # convert xy to lon lat --> via query :)
 for tbl in dcttable.keys():
     srid = getsrid(tbl)
     if srid != None:
         # create table location_mv, with ID and MV based on AHN
-        nwtbl = tbl.replace("location", "location_mv")
+        nwtbl = tbl.replace("location", "location_metadata")
         strsql = f"create table if not exists {nwtbl} (locationkey integer primary key, mv double precision)"
         engine.execute(strsql)
         print("table created", nwtbl)
@@ -207,11 +224,9 @@ for tbl in dcttable.keys():
             engine.execute(strsql)
 
 
-# following section uses WMS to find data from Soilmap of the NL, for given locations.
-fclocal = r"C:\develop\extensometer\localhost_connection_somers.txt"
-localsession, localengine = establishconnection(fclocal)
-
-
+# Using WMS (there doesn't seem to be a WFS deployed by PDOK) was a bit hard.
+# therefore GPGK from https://www.pdok.nl/atom-downloadservices/-/article/bro-bodemkaart-sgm- has
+# been downloaded and loaded into the database
 def getdatafromdb(x, y):
     """get point value soilunit
 
@@ -222,100 +237,90 @@ def getdatafromdb(x, y):
     Returns:
         text: soilunit for given point
     """
-    strsql = f"""SELECT soilunit_code FROM public.soilarea sa 
-    JOIN public.soilarea_soilunit su on su.maparea_id = sa.maparea_id 
+    strsql = f"""SELECT soilunit_code FROM soilmap.soilarea sa 
+    JOIN soilmap.soilarea_soilunit su on su.maparea_id = sa.maparea_id 
     WHERE st_within(st_geomfromewkt('SRID=28992;POINT({x} {y})'), sa.geom)"""
-    scode = localengine.execute(strsql).fetchone()[0]
-    print(scode)
+    try:
+        scode = engine.execute(strsql).fetchone()[0]
+        print("scode", scode)
+        if scode == None:
+            scode = "Null"
+    except Exception:
+        scode = "Null"
+    return scode
 
-
-def preptable(tbl, columnname, datatype):
-    """alters a table in the database and adds a column with a specified datatype if not existing
-
-    Args:
-        tbl (text): tablename
-        columnname (text): columnname
-        datatype (text): datatype (i.e. text, double precision, integer, boolean)
-
-    Remark:
-        In case of geometry column write out full datatype e.g. GEOMETRY POINT(28992)
-    """
-    strsql = "alter table {tbl} add column if not exists {columname} {datatype}"
-    engine.execute(strsql)
-    return
 
 for tbl in dcttable.keys():
-    nwtbl = tbl + "_mv"
+    nwtbl = tbl + "_metadata"
     preptable(nwtbl, "soilunit", "text")
     srid = getsrid(tbl)
     strsql = f"""select locationkey, 
-            st_x(st_transform(geom,4326)),
-            st_y(st_transform(geom,4326)) from {tbl}"""
-    locwgs84 = engine.execute(strsql).fetchall()
-    for i in range(len(locwgs84)):
-        lockey = locwgs84[i][0]
-        x = locwgs84[i][1]
-        y = locwgs84[i][2]
+            st_x(geom),
+            st_y(geom) from {tbl}"""
+    locs = engine.execute(strsql).fetchall()
+    for i in range(len(locs)):
+        lockey = locs[i][0]
+        x = locs[i][1]
+        y = locs[i][2]
         soildata = getdatafromdb(x, y)
         strsql = f"""insert into {nwtbl} (locationkey, soilunit) 
-                     VALUES ({lockey},{soildata})
+                     VALUES ({lockey},'{soildata}')
                         ON CONFLICT(locationkey)
                         DO UPDATE SET
-                        soilunit = {soildata}"""
+                        soilunit = '{soildata}'"""
         engine.execute(strsql)
 
 
 # following section calculates the width of a parcel based on the geometry
-import geopandas
-from shapely import geometry
-from geoalchemy2.shape import to_shape 
-
-def calculate_parcel_width(geometry):
-    """
-    The width is calculated using the formula for the width of a rectangular parcel.
-    If the parcel is square-shaped, the width will default to NaN, and an alternative
-    calculation method is called.
-    """
-    perimeter = geometry.length
-    area = geometry.area
-    width = (perimeter - np.sqrt(perimeter**2 - 16 * area)) / 4
-    if np.isnan(width):  # if square
-        width = np.sqrt(area)
-    return width
-
-
-def smooth_geometry(geometry):
-    """
-    This function applies a smoothing operation to the parcel geometry,
-    removing small irregularities that could affect the calculation of its width.
-    """
-    buffer_distance = 10
-    buffered_geometry = geometry.buffer(
-        buffer_distance, 1, join_style=geometry.JOIN_STYLE.mitre
-    )
-    smoothed_geometry = buffered_geometry.buffer(
-        -buffer_distance, 1, join_style=geometry.JOIN_STYLE.mitre
-    )
-    return smoothed_geometry
-
-
-def get_slootafstand(gdf):
-    """
-    Calculate the width of a smoothed parcel add as column to existing GeoDataFrame.
-    """
-    gdf.loc[:, "smoothed"] = gdf["geometry"].apply(smooth_geometry)
-    gdf.loc[:, "Sloot_afstand_m"] = gdf["smoothed"].apply(calculate_parcel_width)
-    gdf = gdf.drop("smoothed", axis=1)
-    return gdf
-
-# for every point
-# get peatparcel and put in a shapely geometry
-x = 153313
-y = 446205
+# requisite is a single polygon (in query below, a multipolygon is converted into a single
+# polygon and the first polygon is selected, but.... .that is not necessarly the polygon where the point is in.... so
+# first the polygon table needs to be converted into a single point table)
 for tbl in dcttable.keys():
-    nwtbl = tbl + "_mv"
-    preptable(nwtbl, "perceelbreedte", "double precision")
-    preptable(nwtbl, "slootafstand", "double precision")
-    srid = getsrid(tbl)
-    tblpeat = 
-    strsql = f"""select geom from {tblpeat} where st_within(st_geomfromewkt('SRID=28992;POINT({x} {y})'), geom)"""
+    nwtbl = tbl + "_metadata"
+    preptable(nwtbl, "perceel_breedte_m", "double precision")
+    strsql = f"""select (st_perimeter(ST_GeometryN(p.geom, 1)) 
+	- sqrt((st_perimeter(ST_GeometryN(p.geom, 1))^2 - 16*ST_Area(ST_GeometryN(p.geom, 1)))/4 )) as width,
+	st_perimeter(ST_GeometryN(p.geom, 1)) as perimiter, 
+	ST_Area(ST_GeometryN(p.geom, 1)) as area, 
+	locationkey from {tbl} t
+    join input_parcels_2022 p on st_within(t.geom,p.geom)"""
+    reswidth = engine.execute(strsql).fetchall()
+    for i in range(len(reswidth)):
+        width = reswidth[i][0]
+        perim = reswidth[i][1]
+        area = reswidth[i][2]
+        lockey = reswidth[i][3]
+        strsql = f"""insert into {nwtbl} (locationkey, soilunit) 
+                     VALUES ({lockey},'{width}')
+                        ON CONFLICT(locationkey)
+                        DO UPDATE SET
+                        perceel_breedte_m = '{width}'"""
+        engine.execute(strsql)
+
+# now we have all kinds of isolated tables with data neatly organised in the tables
+# for reasons of overview, the following section combines all tables into 1 single view.
+strsql = ''
+for tbl in dcttable.keys():
+    nwtbl = tbl+'_metadata'
+    ansql = f"""SELECT geom, l.locationkey, altitude_msl as msrd_surface, mv as srfc_ahn4, soilunit, perceel_breedte_m FROM {tbl} l
+            JOIN {nwtbl} mt on mt.locationkey = l.locationkey
+            """
+    strsql += ansql + ' UNION '
+
+# remove the last uniton to get the following
+drop view all_locations;
+create or replace view all_locations as
+SELECT geom, 'bro_'||l.locationkey::text, altitude_msl as msrd_surface, mv as srfc_ahn4, soilunit, perceel_breedte_m FROM gwmonitoring.location l
+JOIN gwmonitoring.location_metadata mt on mt.locationkey = l.locationkey
+UNION 
+SELECT geom, 'hhnk_'||l.locationkey::text, altitude_msl as msrd_surface, mv as srfc_ahn4, soilunit, perceel_breedte_m FROM hhnktimeseries.location l
+JOIN hhnktimeseries.location_metadata mt on mt.locationkey = l.locationkey
+UNION 
+SELECT geom, 'nobv_'||l.locationkey::text, altitude_msl as msrd_surface, mv as srfc_ahn4, soilunit, perceel_breedte_m FROM nobv.location l
+JOIN nobv.location_metadata mt on mt.locationkey = l.locationkey
+UNION 
+SELECT geom, 'hdsr_'||l.locationkey::text, altitude_msl as msrd_surface, mv as srfc_ahn4, soilunit, perceel_breedte_m FROM hdsrtimeseries.location l
+JOIN hdsrtimeseries.location_metadata mt on mt.locationkey = l.locationkey
+UNION 
+SELECT geom, 'wskip_'||l.locationkey::text, altitude_msl as msrd_surface, mv as srfc_ahn4, soilunit, perceel_breedte_m FROM timeseries.location l
+JOIN timeseries.location_metadata mt on mt.locationkey = l.locationkey
