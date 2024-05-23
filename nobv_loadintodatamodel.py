@@ -31,6 +31,8 @@ Created on Tue Jul 19 12:05:14 2022
 # Sign up to recieve regular updates of this function, and to contribute
 # your own tools.
 
+
+THIS IS THE RAW DATA DIRECTLY FROM ELLITRACK
 """
 # %%
 import os

@@ -136,11 +136,11 @@ def find_samenvattende_tabel(all_files):
 #TODO write function to check whether metadata has already been uploaded
 
 # set reference to config file
-local = True
+local = False
 if local:
     fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_local_somers.txt"
 else:
-    fc = r"C:\develop\rwsdatatools\config_chloride_rpa.txt"
+    fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_online_qsomers.txt"
 session,engine = establishconnection(fc)
 
 
@@ -198,11 +198,11 @@ if samenvattende_tabel_path: #if all metadatafiles recieve the same name
 
         #build in that the metadatafile is not updated when the entries are already there 
 
-        # dfs.to_sql('location',engine,schema='waterschappen_timeseries',index=None,if_exists='append')
+        dfs.to_sql('location',engine,schema='waterschappen_timeseries',index=None,if_exists='append')
 
         # # update the table set the geometry for those records that have null as geom
-        # stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='waterschappen_timeseries',t='location')
-        # engine.execute(stmt)
+        stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='waterschappen_timeseries',t='location')
+        engine.execute(stmt)
 
     elif dfg['TYPE'].unique()[0] == 'GWM':
         print('todo still')
