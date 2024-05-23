@@ -49,7 +49,7 @@ import rasterio
 from utils_wcs import *
 from ts_helpders import establishconnection, testconnection
 
-dctcolumns ={}
+dctcolumns = {}
 dctcolumns["well_id"] = "text"
 dctcolumns["aan_id"] = "text"
 dctcolumns["transect"] = "text"
@@ -76,7 +76,7 @@ dctcolumns["wis_depth_m_sfl"] = "double precision"
 dctcolumns["source"] = "text"
 
 
-#TODO --> check parameter (process only groundwater wells)
+# TODO --> check parameter (process only groundwater wells)
 
 # globals
 geoserver_url = "https://service.pdok.nl/rws/ahn/wcs/v1_0"
@@ -97,6 +97,7 @@ dcttable["brotimeseries.location"] = "placeholder"
 dcttable["hdsrtimeseries.location"] = "placeholder"
 dcttable["hhnktimeseries.location"] = "placeholder"
 dcttable["timeseries.location"] = "placeholder"
+
 
 # Get a unique temporary file
 def tempfile(tempdir, typen="plot", extension=".html"):
@@ -215,15 +216,16 @@ def getmv4point(x, y):
     os.unlink(arf)
     return val
 
+
 # prepare master metadata table for alle subtables per source
 for tbl in dcttable.keys():
-    nwtbl = tbl+'_metadata'
+    nwtbl = tbl + "_metadata"
     strsql = f"create table if not exists {nwtbl} (well_id integer primary key)"
     engine.execute(strsql)
     for columname in dctcolumns.keys():
         preptable(nwtbl, columname, dctcolumns[columname])
-        #strsql = f'alter table {nwtbl} drop column {columname}'
-        #engine.execute(strsql)
+        # strsql = f'alter table {nwtbl} drop column {columname}'
+        # engine.execute(strsql)
 
 
 # Get locations from database
@@ -317,7 +319,7 @@ for tbl in dcttable.keys():
     for i in range(len(locs)):
         lockey = locs[i][0]
         x = locs[i][1]
-        y = locs[i][2]        
+        y = locs[i][2]
         strsql = f"""insert into {nwtbl} (well_id, x_well,y_well) 
                     VALUES ({lockey},{x},{y})
                     ON CONFLICT(well_id)
@@ -342,7 +344,7 @@ for tbl in dcttable.keys():
     for i in range(len(locs)):
         lockey = locs[i][0]
         x = locs[i][1]
-        y = locs[i][2]        
+        y = locs[i][2]
         strsql = f"""insert into {nwtbl} (well_id, x_well,y_well) 
                     VALUES ({lockey},{x},{y})
                     ON CONFLICT(well_id)
@@ -379,9 +381,9 @@ for tbl in dcttable.keys():
 
 # now we have all kinds of isolated tables with data neatly organised in the tables
 # for reasons of overview, the following section combines all tables into 1 single view.
-strsql = ''
+strsql = ""
 for tbl in dcttable.keys():
-    nwtbl = tbl+'_metadata'
+    nwtbl = tbl + "_metadata"
     ansql = f"""SELECT geom, 
                        l.locationkey, 
                        altitude_msl as msrd_surface, 
@@ -391,10 +393,10 @@ for tbl in dcttable.keys():
             FROM {tbl} l
             JOIN {nwtbl} mt on mt.locationkey = l.locationkey
             """
-    strsql += ansql + ' UNION '
+    strsql += ansql + " UNION "
 
-# remove the last uniton to get the following
-drop view all_locations;
+# remove the last union to get the following sql, this should be adjusted to the new datamodel
+"""drop view all_locations;
 create or replace view all_locations as
 SELECT geom, 'bro_'||l.locationkey::text, altitude_msl as msrd_surface, mv as srfc_ahn4, soilunit, perceel_breedte_m FROM gwmonitoring.location l
 JOIN gwmonitoring.location_metadata mt on mt.locationkey = l.locationkey
@@ -409,4 +411,4 @@ SELECT geom, 'hdsr_'||l.locationkey::text, altitude_msl as msrd_surface, mv as s
 JOIN hdsrtimeseries.location_metadata mt on mt.locationkey = l.locationkey
 UNION 
 SELECT geom, 'wskip_'||l.locationkey::text, altitude_msl as msrd_surface, mv as srfc_ahn4, soilunit, perceel_breedte_m FROM timeseries.location l
-JOIN timeseries.location_metadata mt on mt.locationkey = l.locationkey
+JOIN timeseries.location_metadata mt on mt.locationkey = l.locationkey"""
