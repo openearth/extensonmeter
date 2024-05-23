@@ -49,6 +49,35 @@ import rasterio
 from utils_wcs import *
 from ts_helpders import establishconnection, testconnection
 
+dctcolumns ={}
+dctcolumns["well_id"] = "text"
+dctcolumns["aan_id"] = "text"
+dctcolumns["transect"] = "text"
+dctcolumns["parcel_type"] = "text"
+dctcolumns["x_centre_parcel"] = "double precision"
+dctcolumns["y_centre_parcel"] = "double precision"
+dctcolumns["soil_class"] = "text"
+dctcolumns["surface_level_m_nap"] = "double precision"
+dctcolumns["parcel_width_m"] = "double precision"
+dctcolumns["summer_stage_m_nap"] = "double precision"
+dctcolumns["winter_stage_m_nap"] = "double precision"
+dctcolumns["ditch_id"] = "text"
+dctcolumns["x_well"] = "double precision"
+dctcolumns["y_well"] = "double precision"
+dctcolumns["distance_to_ditch_m"] = "double precision"
+dctcolumns["distance_to_wis_m"] = "double precision"
+dctcolumns["start_date"] = "text"
+dctcolumns["end_date"] = "text"
+dctcolumns["records"] = "integer"
+dctcolumns["trenches"] = "double precision[]"
+dctcolumns["trench_depth_m_sfl"] = "double precision"
+dctcolumns["wis_distance_m"] = "double precision"
+dctcolumns["wis_depth_m_sfl"] = "double precision"
+dctcolumns["source"] = "text"
+
+
+#TODO --> check parameter (process only groundwater wells)
+
 # globals
 geoserver_url = "https://service.pdok.nl/rws/ahn/wcs/v1_0"
 layername = "dtm_05m"
@@ -64,13 +93,10 @@ if not testconnection(engine):
 # that has measured surface elevation
 
 dcttable = {}
-dcttable["gwmonitoring.location"] = "altitude_msl"
-dcttable["hhnktimeseries.location"] = "altitude_msl"
-dcttable["nobv.location"] = "altitude_msl"
-dcttable["hdsrtimeseries.location"] = "altitude_msl"
-dcttable["hhnktimeseries.location"] = "altitude_msl"
-dcttable["timeseries.location"] = "altitude_msl"
-
+dcttable["brotimeseries.location"] = "placeholder"
+dcttable["hdsrtimeseries.location"] = "placeholder"
+dcttable["hhnktimeseries.location"] = "placeholder"
+dcttable["timeseries.location"] = "placeholder"
 
 # Get a unique temporary file
 def tempfile(tempdir, typen="plot", extension=".html"):
@@ -189,6 +215,16 @@ def getmv4point(x, y):
     os.unlink(arf)
     return val
 
+# prepare master metadata table for alle subtables per source
+for tbl in dcttable.keys():
+    nwtbl = tbl+'_metadata'
+    strsql = f"create table if not exists {nwtbl} (well_id integer primary key)"
+    engine.execute(strsql)
+    for columname in dctcolumns.keys():
+        preptable(nwtbl, columname, dctcolumns[columname])
+        #strsql = f'alter table {nwtbl} drop column {columname}'
+        #engine.execute(strsql)
+
 
 # Get locations from database
 # convert xy to lon lat --> via query :)
@@ -197,7 +233,7 @@ for tbl in dcttable.keys():
     if srid != None:
         # create table location_mv, with ID and MV based on AHN
         nwtbl = tbl.replace("location", "location_metadata")
-        strsql = f"create table if not exists {nwtbl} (locationkey integer primary key, mv double precision)"
+        strsql = f"create table if not exists {nwtbl} (well_id integer primary key, surface_level_m_nap double precision)"
         engine.execute(strsql)
         print("table created", nwtbl)
         # rquest locationky, xy in long lat for every record
@@ -215,12 +251,12 @@ for tbl in dcttable.keys():
                 print(lockey, x, y, mv)
             else:
                 mv = "NULL"
-                print(lockey, "from table", tbl, "has geometry is None")
-            strsql = f"""insert into {nwtbl} (locationkey, mv) 
+                print(lockey, "from table", tbl, "has geometry None")
+            strsql = f"""insert into {nwtbl} (well_id, surface_level_m_nap) 
                         VALUES ({lockey},{mv})
-                        ON CONFLICT(locationkey)
+                        ON CONFLICT(well_id)
                         DO UPDATE SET
-                        mv = {mv}"""
+                        surface_level_m_nap = {mv}"""
             engine.execute(strsql)
 
 
@@ -237,7 +273,7 @@ def getdatafromdb(x, y):
     Returns:
         text: soilunit for given point
     """
-    strsql = f"""SELECT soilunit_code FROM soilmap.soilarea sa 
+    strsql = f"""SELECT su.soilunit_code FROM soilmap.soilarea sa 
     JOIN soilmap.soilarea_soilunit su on su.maparea_id = sa.maparea_id 
     WHERE st_within(st_geomfromewkt('SRID=28992;POINT({x} {y})'), sa.geom)"""
     try:
@@ -252,7 +288,7 @@ def getdatafromdb(x, y):
 
 for tbl in dcttable.keys():
     nwtbl = tbl + "_metadata"
-    preptable(nwtbl, "soilunit", "text")
+    preptable(nwtbl, "soil_class", "text")
     srid = getsrid(tbl)
     strsql = f"""select locationkey, 
             st_x(geom),
@@ -263,11 +299,55 @@ for tbl in dcttable.keys():
         x = locs[i][1]
         y = locs[i][2]
         soildata = getdatafromdb(x, y)
-        strsql = f"""insert into {nwtbl} (locationkey, soilunit) 
+        strsql = f"""insert into {nwtbl} (well_id, soil_class) 
                      VALUES ({lockey},'{soildata}')
-                        ON CONFLICT(locationkey)
+                        ON CONFLICT(well_id)
                         DO UPDATE SET
-                        soilunit = '{soildata}'"""
+                        soil_class = '{soildata}'"""
+        engine.execute(strsql)
+
+
+# set various generic (location dependend) data in metadata table (xy from well)
+for tbl in dcttable.keys():
+    nwtbl = tbl + "_metadata"
+    strsql = f"""select locationkey, 
+            st_x(geom),
+            st_y(geom) from {tbl}"""
+    locs = engine.execute(strsql).fetchall()
+    for i in range(len(locs)):
+        lockey = locs[i][0]
+        x = locs[i][1]
+        y = locs[i][2]        
+        strsql = f"""insert into {nwtbl} (well_id, x_well,y_well) 
+                    VALUES ({lockey},{x},{y})
+                    ON CONFLICT(well_id)
+                    DO UPDATE SET
+                    x_well = {x}, y_well = {y}"""
+        engine.execute(strsql)
+
+# set various generic (location dependend) data in metadata table (xy from well)
+for tbl in dcttable.keys():
+    nwtbl = tbl + "_metadata"
+    strsql = f"""select locationkey, 
+    perceel_id, 
+    aan_id, 
+    type_peilb, 
+    zomerpeil_, 
+    winterpeil, 
+    sloot_afst, 
+    x_coord, 
+    y_coord from {tbl} l
+    join input_parcels_2022 ip on st_within(l.geom, ip.geom) """
+    locs = engine.execute(strsql).fetchall()
+    for i in range(len(locs)):
+        lockey = locs[i][0]
+        x = locs[i][1]
+        y = locs[i][2]        
+        strsql = f"""insert into {nwtbl} (well_id, x_well,y_well) 
+                    VALUES ({lockey},{x},{y})
+                    ON CONFLICT(well_id)
+                    DO UPDATE SET
+                    x_well = {x}, y_well = {y}"""
         engine.execute(strsql)
 
 
@@ -277,7 +357,7 @@ for tbl in dcttable.keys():
 # first the polygon table needs to be converted into a single point table)
 for tbl in dcttable.keys():
     nwtbl = tbl + "_metadata"
-    preptable(nwtbl, "perceel_breedte_m", "double precision")
+    preptable(nwtbl, "parcel_width_m", "double precision")
     strsql = f"""select (st_perimeter(ST_GeometryN(p.geom, 1)) 
 	- sqrt((st_perimeter(ST_GeometryN(p.geom, 1))^2 - 16*ST_Area(ST_GeometryN(p.geom, 1)))/4 )) as width,
 	st_perimeter(ST_GeometryN(p.geom, 1)) as perimiter, 
@@ -290,11 +370,11 @@ for tbl in dcttable.keys():
         perim = reswidth[i][1]
         area = reswidth[i][2]
         lockey = reswidth[i][3]
-        strsql = f"""insert into {nwtbl} (locationkey, soilunit) 
+        strsql = f"""insert into {nwtbl} (well_id, parcel_width_m) 
                      VALUES ({lockey},'{width}')
-                        ON CONFLICT(locationkey)
+                        ON CONFLICT(well_id)
                         DO UPDATE SET
-                        perceel_breedte_m = '{width}'"""
+                        parcel_width_m = '{width}'"""
         engine.execute(strsql)
 
 # now we have all kinds of isolated tables with data neatly organised in the tables
@@ -302,7 +382,13 @@ for tbl in dcttable.keys():
 strsql = ''
 for tbl in dcttable.keys():
     nwtbl = tbl+'_metadata'
-    ansql = f"""SELECT geom, l.locationkey, altitude_msl as msrd_surface, mv as srfc_ahn4, soilunit, perceel_breedte_m FROM {tbl} l
+    ansql = f"""SELECT geom, 
+                       l.locationkey, 
+                       altitude_msl as msrd_surface, 
+                       mv as srfc_ahn4, 
+                       soilunit, 
+                       perceel_breedte_m 
+            FROM {tbl} l
             JOIN {nwtbl} mt on mt.locationkey = l.locationkey
             """
     strsql += ansql + ' UNION '
