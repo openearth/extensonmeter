@@ -65,6 +65,8 @@ dctcolumns["ditch_id"] = "text"
 dctcolumns["x_well"] = "double precision"
 dctcolumns["y_well"] = "double precision"
 dctcolumns["distance_to_ditch_m"] = "double precision"
+dctcolumns["distance_to_road_m"] = "double precision"
+dctcolumns["distance_to_railroad_m"] = "double precision"
 dctcolumns["distance_to_wis_m"] = "double precision"
 dctcolumns["start_date"] = "text"
 dctcolumns["end_date"] = "text"
@@ -310,22 +312,63 @@ for tbl in dcttable.keys():
 
 
 # set various generic (location dependend) data in metadata table (xy from well)
+# also harvests centroid of the BRP_GEWAS parcel
 for tbl in dcttable.keys():
     nwtbl = tbl + "_metadata"
-    strsql = f"""select locationkey, 
-            st_x(geom),
-            st_y(geom) from {tbl}"""
+    strsql = f"""SELECT locationkey, 
+            st_x(l.geom),
+            st_y(l.geom),
+            st_x(st_centroid(brp.geom)) as x_centre_parcel,
+	        st_y(st_centroid(brp.geom)) as y_centre_parcel from
+            {tbl} l
+            JOIN brp_gewas brp on st_within(l.geom,brp.geom)"""
     locs = engine.execute(strsql).fetchall()
     for i in range(len(locs)):
         lockey = locs[i][0]
         x = locs[i][1]
         y = locs[i][2]
-        strsql = f"""insert into {nwtbl} (well_id, x_well,y_well) 
-                    VALUES ({lockey},{x},{y})
+        xc = locs[i][3]
+        yc = locs[i][4]
+        strsql = f"""insert into {nwtbl} (well_id, x_well,y_well,x_centre_parcel,y_centre_parcel) 
+                    VALUES ({lockey},{x},{y},{xc},{yc})
                     ON CONFLICT(well_id)
                     DO UPDATE SET
-                    x_well = {x}, y_well = {y}"""
+                    x_well = {x}, y_well = {y}, x_centre_parcel = {xc}, y_centre_parcel = {yc}"""
         engine.execute(strsql)
+
+# for every location the distance to ditch, road and centr of railroad is derived from top 10 data
+# bear in mind, this is a very time costly operation, takes a long time (well, up to an hour)!
+dcttop10 = {}
+dcttop10["top10.top10nl_waterdeel_lijn"] = "distance_to_ditch_m"
+dcttop10["top10.top10nl_spooras"] = "distance_to_railroad_m"
+dcttop10["top10.top10nl_wegdeel_hartlijn"] = "distance_to_road_m"
+
+for t10 in dcttop10.keys():
+    c = dcttop10[t10]
+    for tbl in dcttable.keys():
+        print("retrieving distances between points from ", tbl, " for ", t10)
+        nwtbl = tbl + "_metadata"
+        preptable(nwtbl, c, "double precision")
+        strsql = f"""SELECT locationkey 
+                FROM {tbl}"""
+        locs = engine.execute(strsql).fetchall()
+        for i in range(len(locs)):
+            lockey = locs[i][0]
+            strsql = f"""SELECT locationkey, 
+                ST_DISTANCE(l.geom,wl.geom)
+                FROM {tbl} l, {t10} wl
+                WHERE locationkey = {lockey}
+                ORDER BY
+                l.geom <-> wl.geom
+                limit 1"""
+            vals = engine.execute(strsql).fetchall()
+
+            strsql = f"""insert into {nwtbl} (well_id, {c}) 
+                        VALUES ({lockey},{vals[0][1]})
+                        ON CONFLICT(well_id)
+                        DO UPDATE SET
+                        {c} = {vals[0][1]}"""
+            engine.execute(strsql)
 
 # set various generic (location dependend) data in metadata table (xy from well)
 for tbl in dcttable.keys():
@@ -379,6 +422,8 @@ for tbl in dcttable.keys():
                         parcel_width_m = '{width}'"""
         engine.execute(strsql)
 
+
+# -------------- last stage of the proces is to union all metadata tables
 # now we have all kinds of isolated tables with data neatly organised in the tables
 # for reasons of overview, the following section combines all tables into 1 single view.
 strsql = ""
