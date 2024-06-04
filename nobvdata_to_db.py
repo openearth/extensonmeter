@@ -173,19 +173,15 @@ flagkeyswm=sflag(fc,'Slootwatermeetpunt-ruwe data', 'Slootwatermeetpunt-ruwe dat
 # Example usage:
 cols_loctable=['naam_meetpunt', 'x-coor', 'y-coor','top filter (m-mv)','onderkant filter (m-mv)','maaiveld (m NAP)']
 cols_metatable=['slootafstand (m)', 'zomer streefpeil (m NAP)',
-       'winter streefpeil (m NAP)', 'greppel aanwezig (ja/nee)',
-       'drains aanwezig (ja/nee)', 'WIS aanwezig (ja/nee)',
-       'greppelafstand (m)', 'greppeldiepte (m-mv)', 'drainafstand (m)',
-       'draindiepte (m-mv)', 'WIS afstand (m)', 'WIS diepte (m-mv)']
+       'winter streefpeil (m NAP)', 
+       'greppelafstand (m)', 'greppeldiepte (m-mv)', 'WIS afstand (m)', 'WIS diepte (m-mv)']
+
+# drop columns 'greppel aanwezig (ja/nee)','drains aanwezig (ja/nee)', 'WIS aanwezig (ja/nee)','drainafstand (m)','draindiepte (m-mv)'
+
 
 new_loctabel = ['name', 'x', 'y', 'tubetop', 'tubebot', 'altitude_msl']
-
-timeseries = ['datetime','scalarvalue']
-# filename = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\NOBV\GWM_ASD_MP_2.txt'
-# result_df = extract_info_from_text_file(filename)
-
-# metadata = pd.read_csv(r'P:\11207812-somers-ontwikkeling\somers_v2_development\data\2-interim\pp2d_phreatic_head\metadata\master_metadata.csv')                                      
-# %%
+new_loc_swm = [ 'name', 'x', 'y']
+timeseries = ['datetime','scalarvalue']                                    
 
 for root,subdirs,files in os.walk(root):    
     for count, file in enumerate(files):
@@ -201,9 +197,33 @@ for root,subdirs,files in os.walk(root):
             dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
             # print(dfx)
             if data == 'SWM':
-                print('for laterrr')
-                # skeyz = sserieskey(fc, pkeyswm, locationkey[0], fskey[0],timestep='nonequidistant')
-                # flag = flagkeyswm
+                df= extract_info_from_text_file(os.path.join(root,file))
+                # print(df.columns)
+                df.columns = new_loc_swm
+                df['locationkey'] = count
+                df['epsgcode'] = 28992
+                df['filesourcekey']=fskey[0][0] 
+
+                df.to_sql('location',engine,schema='nobv_timeseries',index=None,if_exists='append')
+                stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='nobv_timeseries',t='location')
+                engine.execute(stmt)
+
+                skeyz = sserieskey(fc, pkeyswm, locationkey, fskey[0],timestep='nonequidistant')
+                flag = flagkeyswm
+
+                dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
+                dfx.columns = timeseries
+                dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y')
+                dfx=dfx.dropna() 
+
+                r=latest_entry(skeyz)
+
+                if r!=dfx['datetime'].iloc[-1]:
+                    dfx['timeserieskey'] = skeyz 
+                    dfx['flags' ] = flag
+                    dfx.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='nobv_timeseries')
+                else:
+                    print('not updating')
             elif data == 'GWM':
                 df= extract_info_from_text_file(os.path.join(root,file))
                 locationtable = df[cols_loctable]
@@ -213,16 +233,24 @@ for root,subdirs,files in os.walk(root):
                 locationtable['epsgcode'] = 28992
                 locationtable['filesourcekey']=fskey[0][0] 
 
-                # locationtable.to_sql('location',engine,schema='nobv_timeseries',index=None,if_exists='append')
-                # stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='nobv_timeseries',t='location')
-                # engine.execute(stmt)
+                locationtable.to_sql('location',engine,schema='nobv_timeseries',index=None,if_exists='append')
+                stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='nobv_timeseries',t='location')
+                engine.execute(stmt)
 
                 metadata = df[cols_metatable]
-                metadata.columns = metadata.columns.str.replace(r'[()]', '')
-                metadata.columns = metadata.columns.str.replace(r'[ /-]', '_', regex=True)
+                # metadata.columns = metadata.columns.str.replace(r'[()]', '')
+                # metadata.columns = metadata.columns.str.replace(r'[ /-]', '_', regex=True)
+                metadata = metadata.rename(columns={'slootafstand (m)': 'parcel_width_m', 
+                                                    'greppelafstand (m)':'trenches',
+                                                    'greppeldiepte (m-mv)':'trench_depth_m_sfl',
+              'zomer streefpeil (m NAP)': 'summer_stage_m_nap', 
+              'winter streefpeil (m NAP)':'winter_stage_m_nap',
+              'WIS afstand (m)': 'wis_distance_m',
+              'WIS diepte (m-mv)': 'wis_depth_m_sfl'})
                 metadata = metadata.replace('nan', np.nan)
+                metadata['locationkey'] = count
 
-                # metadata.to_sql('location_metadata',engine,schema='nobv_timeseries',index=None,if_exists='append')
+                metadata.to_sql('location_metadata',engine,schema='nobv_timeseries',index=None,if_exists='append')
 
                 skeyz = sserieskey(fc, pkeygwm, locationkey, fskey[0],timestep='nonequidistant')
                 flag = flagkeygwm
@@ -243,5 +271,5 @@ for root,subdirs,files in os.walk(root):
 
 
             else:
-                print('Different serieskey and / or flagkey needed')
+                print('NOT SWM or GWM:', name)
 # %%
