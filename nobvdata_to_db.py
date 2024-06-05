@@ -148,9 +148,27 @@ def extract_info_from_text_file(filename):
     df = pd.DataFrame([data])
     return df
 
+def find_locationkey():
+    #find the max locationkey which is currently stored in the database
+    stmt="""select max(locationkey) from waterschappen_timeseries.location;"""
+    r = engine.execute(stmt).fetchall()[0][0]
+    return r 
 
+def find_if_stored(name):
+    #find the max locationkey which is currently stored in the database
+    try:
+        stmt="""select locationkey from waterschappen_timeseries.location
+        where name = {n};""".format(n=name)
+        r = engine.execute(stmt).fetchall()[0][0]
+        return True #mean yes / True it is stored
+    except:
+        return False #means False it is not stored
+
+#TODO assign primary key to the location_metadata table (well_id)
+#TODO change the locationkey into well_id
+# TODO change the trenches into a list instead of a double precision
 # set reference to config file
-local = True
+local = False
 if local:
     fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_local_somers.txt"
 else:

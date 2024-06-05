@@ -78,12 +78,14 @@ dctcolumns["wis_depth_m_sfl"] = "double precision"
 dctcolumns["source"] = "text"
 
 
-# TODO --> check parameter (process only groundwater wells)
+# TODO --> check parameter (process only groundwater wells for the master_metadata view) containing the TODO below 
+# TODO --> join the SWM with corresponding GWM 
+# TODO --> nadenken over het gebruik van source ipv well_id in de final master metadata
 
 # globals
 geoserver_url = "https://service.pdok.nl/rws/ahn/wcs/v1_0"
 layername = "dtm_05m"
-cf = r"C:\develop\extensometer\connection_online.txt"
+cf = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_online_qsomers.txt"
 session, engine = establishconnection(cf)
 
 if not testconnection(engine):
@@ -95,10 +97,12 @@ if not testconnection(engine):
 # that has measured surface elevation
 
 dcttable = {}
-dcttable["brotimeseries.location"] = "placeholder"
-dcttable["hdsrtimeseries.location"] = "placeholder"
-dcttable["hhnktimeseries.location"] = "placeholder"
-dcttable["timeseries.location"] = "placeholder"
+# dcttable["brotimeseries.location"] = "placeholder"
+# dcttable["hdsrtimeseries.location"] = "placeholder"
+# dcttable["hhnktimeseries.location"] = "placeholder"
+# dcttable["timeseries.location"] = "placeholder"
+dcttable["waterschappen_timeseries.location"] = "placeholder" #handmetingen
+# dcttable["nobv_timeseries.location"] = "placeholder" #nobv handmatige bewerkingen data 
 
 
 # Get a unique temporary file
@@ -250,19 +254,21 @@ for tbl in dcttable.keys():
             lockey = locwgs84[i][0]
             x = locwgs84[i][1]
             y = locwgs84[i][2]
-            if x is not None:
-                mv = getmv4point(x, y)
-                print(lockey, x, y, mv)
-            else:
-                mv = "NULL"
-                print(lockey, "from table", tbl, "has geometry None")
-            strsql = f"""insert into {nwtbl} (well_id, surface_level_m_nap) 
-                        VALUES ({lockey},{mv})
-                        ON CONFLICT(well_id)
-                        DO UPDATE SET
-                        surface_level_m_nap = {mv}"""
-            engine.execute(strsql)
-
+            try:
+                if x is not None:
+                    mv = getmv4point(x, y)
+                    print(lockey, x, y, mv)
+                else:
+                    mv = "NULL"
+                    print(lockey, "from table", tbl, "has geometry None")
+                strsql = f"""insert into {nwtbl} (well_id, surface_level_m_nap) 
+                            VALUES ({lockey},{mv})
+                            ON CONFLICT(well_id)
+                            DO UPDATE SET
+                            surface_level_m_nap = {mv}""" #add AHN values as surface_level_m_nap
+                engine.execute(strsql)
+            except:
+                print('not updating AHN')
 
 # Using WMS (there doesn't seem to be a WFS deployed by PDOK) was a bit hard.
 # therefore GPGK from https://www.pdok.nl/atom-downloadservices/-/article/bro-bodemkaart-sgm- has
@@ -370,90 +376,160 @@ for t10 in dcttop10.keys():
                         {c} = {vals[0][1]}"""
             engine.execute(strsql)
 
-# set various generic (location dependend) data in metadata table (xy from well)
-for tbl in dcttable.keys():
-    nwtbl = tbl + "_metadata"
-    strsql = f"""select locationkey, 
-    perceel_id, 
-    aan_id, 
-    type_peilb, 
-    zomerpeil_, 
-    winterpeil, 
-    sloot_afst, 
-    x_coord, 
-    y_coord from {tbl} l
-    join input_parcels_2022 ip on st_within(l.geom, ip.geom) """
-    locs = engine.execute(strsql).fetchall()
-    for i in range(len(locs)):
-        lockey = locs[i][0]
-        x = locs[i][1]
-        y = locs[i][2]
-        strsql = f"""insert into {nwtbl} (well_id, x_well,y_well) 
-                    VALUES ({lockey},{x},{y})
-                    ON CONFLICT(well_id)
-                    DO UPDATE SET
-                    x_well = {x}, y_well = {y}"""
-        engine.execute(strsql)
+# ----- set various generic (location dependend) data in metadata table (xy from well)
+# TODO check if this code is still needed? gives errors in its current state 
+# and does not seme to add to the laction_metadata tables, may be left over code??
+# Turn the code off for now
+
+# for tbl in dcttable.keys():
+#     nwtbl = tbl + "_metadata"
+#     strsql = f"""select locationkey, 
+#     perceel_id, 
+#     aan_id, 
+#     type_peilb, 
+#     zomerpeil_, 
+#     winterpeil, 
+#     sloot_afst, 
+#     x_coord, 
+#     y_coord from {tbl} l
+#     join input_parcels_2022 ip on st_within(l.geom, ip.geom) """
+#     locs = engine.execute(strsql).fetchall()
+#     for i in range(len(locs)):
+#         lockey = locs[i][0]
+#         x = locs[i][1]
+#         y = locs[i][2]
+#         try:
+#             strsql = f"""insert into {nwtbl} (well_id, x_well,y_well) 
+#                         VALUES ({lockey},{x},{y})
+#                         ON CONFLICT(well_id)
+#                         DO UPDATE SET
+#                         x_well = {x}, y_well = {y}"""
+#             engine.execute(strsql)
+#         except Exception as e:
+#             # Handle the conflict (e.g., log the error or ignore it)
+#             print(f"Error: {e}. {lockey}.")
 
 
 # following section calculates the width of a parcel based on the geometry
 # requisite is a single polygon (in query below, a multipolygon is converted into a single
 # polygon and the first polygon is selected, but.... .that is not necessarly the polygon where the point is in.... so
 # first the polygon table needs to be converted into a single point table)
-for tbl in dcttable.keys():
-    nwtbl = tbl + "_metadata"
-    preptable(nwtbl, "parcel_width_m", "double precision")
-    strsql = f"""select (st_perimeter(ST_GeometryN(p.geom, 1)) 
-	- sqrt((st_perimeter(ST_GeometryN(p.geom, 1))^2 - 16*ST_Area(ST_GeometryN(p.geom, 1)))/4 )) as width,
-	st_perimeter(ST_GeometryN(p.geom, 1)) as perimiter, 
-	ST_Area(ST_GeometryN(p.geom, 1)) as area, 
-	locationkey from {tbl} t
-    join input_parcels_2022 p on st_within(t.geom,p.geom)"""
-    reswidth = engine.execute(strsql).fetchall()
-    for i in range(len(reswidth)):
-        width = reswidth[i][0]
-        perim = reswidth[i][1]
-        area = reswidth[i][2]
-        lockey = reswidth[i][3]
-        strsql = f"""insert into {nwtbl} (well_id, parcel_width_m) 
-                     VALUES ({lockey},'{width}')
-                        ON CONFLICT(well_id)
-                        DO UPDATE SET
-                        parcel_width_m = '{width}'"""
-        engine.execute(strsql)
+# TODO check if this is being used
+# for tbl in dcttable.keys():
+#     nwtbl = tbl + "_metadata"
+#     preptable(nwtbl, "parcel_width_m", "double precision")
+#     strsql = f"""select (st_perimeter(ST_GeometryN(p.geom, 1)) 
+# 	- sqrt((st_perimeter(ST_GeometryN(p.geom, 1))^2 - 16*ST_Area(ST_GeometryN(p.geom, 1)))/4 )) as width,
+# 	st_perimeter(ST_GeometryN(p.geom, 1)) as perimiter, 
+# 	ST_Area(ST_GeometryN(p.geom, 1)) as area, 
+# 	locationkey from {tbl} t
+#     join input_parcels_2022 p on st_within(t.geom,p.geom)"""
+#     reswidth = engine.execute(strsql).fetchall()
+#     for i in range(len(reswidth)):
+#         width = reswidth[i][0]
+#         perim = reswidth[i][1]
+#         area = reswidth[i][2]
+#         lockey = reswidth[i][3]
+#         strsql = f"""insert into {nwtbl} (well_id, parcel_width_m) 
+#                      VALUES ({lockey},'{width}')
+#                         ON CONFLICT(well_id)
+#                         DO UPDATE SET
+#                         parcel_width_m = '{width}'"""
+#         engine.execute(strsql)
 
 
 # -------------- last stage of the proces is to union all metadata tables
 # now we have all kinds of isolated tables with data neatly organised in the tables
 # for reasons of overview, the following section combines all tables into 1 single view.
-strsql = ""
-for tbl in dcttable.keys():
-    nwtbl = tbl + "_metadata"
-    ansql = f"""SELECT geom, 
-                       l.locationkey, 
-                       altitude_msl as msrd_surface, 
-                       mv as srfc_ahn4, 
-                       soilunit, 
-                       perceel_breedte_m 
-            FROM {tbl} l
-            JOIN {nwtbl} mt on mt.locationkey = l.locationkey
-            """
-    strsql += ansql + " UNION "
+# TODO change -> see if it is possible to combine the union into a loop 
+# strsql = ""
+# for tbl in dcttable.keys():
+#     nwtbl = tbl + "_metadata"
+#     ansql = f"""SELECT geom, 
+#                        l.locationkey, 
+#                        altitude_msl as msrd_surface, 
+#                        mv as srfc_ahn4, 
+#                        soilunit, 
+#                        perceel_breedte_m 
+#             FROM {tbl} l
+#             JOIN {nwtbl} mt on mt.locationkey = l.locationkey
+#             """
+#     strsql += ansql + " UNION "
 
 # remove the last union to get the following sql, this should be adjusted to the new datamodel
-"""drop view all_locations;
-create or replace view all_locations as
-SELECT geom, 'bro_'||l.locationkey::text, altitude_msl as msrd_surface, mv as srfc_ahn4, soilunit, perceel_breedte_m FROM gwmonitoring.location l
-JOIN gwmonitoring.location_metadata mt on mt.locationkey = l.locationkey
+"""drop table all_locations;
+create table all_locations as
+SELECT geom, ('bro_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
+mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
+mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class FROM brotimeseries.location l
+JOIN brotimeseries.location_metadata mt on mt.well_id = l.locationkey
 UNION 
-SELECT geom, 'hhnk_'||l.locationkey::text, altitude_msl as msrd_surface, mv as srfc_ahn4, soilunit, perceel_breedte_m FROM hhnktimeseries.location l
-JOIN hhnktimeseries.location_metadata mt on mt.locationkey = l.locationkey
+SELECT geom, ('hhnk_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
+mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
+mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class FROM hhnktimeseries.location l
+JOIN hhnktimeseries.location_metadata mt on mt.well_id = l.locationkey
 UNION 
-SELECT geom, 'nobv_'||l.locationkey::text, altitude_msl as msrd_surface, mv as srfc_ahn4, soilunit, perceel_breedte_m FROM nobv.location l
-JOIN nobv.location_metadata mt on mt.locationkey = l.locationkey
+SELECT geom, ('nobv_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
+mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
+mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class FROM nobv_timeseries.location l
+JOIN nobv_timeseries.location_metadata mt on mt.well_id = l.locationkey
+JOIN nobv_timeseries.timeseries t on t.locationkey = l.locationkey
+JOIN nobv_timeseries.parameter p on p.parameterkey = t.parameterkey
+where p.id = 'GWM'
 UNION 
-SELECT geom, 'hdsr_'||l.locationkey::text, altitude_msl as msrd_surface, mv as srfc_ahn4, soilunit, perceel_breedte_m FROM hdsrtimeseries.location l
-JOIN hdsrtimeseries.location_metadata mt on mt.locationkey = l.locationkey
+SELECT geom, ('hdsr_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
+mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
+mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class FROM hdsrtimeseries.location l
+JOIN hdsrtimeseries.location_metadata mt on mt.well_id = l.locationkey
 UNION 
-SELECT geom, 'wskip_'||l.locationkey::text, altitude_msl as msrd_surface, mv as srfc_ahn4, soilunit, perceel_breedte_m FROM timeseries.location l
-JOIN timeseries.location_metadata mt on mt.locationkey = l.locationkey"""
+SELECT geom, ('wskip_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
+mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
+mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class FROM timeseries.location l
+JOIN timeseries.location_metadata mt on mt.well_id = l.locationkey
+UNION
+SELECT geom, ('waterschappen_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
+mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
+mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class FROM waterschappen_timeseries.location l
+JOIN waterschappen_timeseries.location_metadata mt on mt.well_id = l.locationkey
+JOIN waterschappen_timeseries.timeseries t on t.locationkey = l.locationkey
+JOIN waterschappen_timeseries.parameter p on p.parameterkey = t.parameterkey
+where p.id = 'GWM'"""
+
+"""
+Alter table public.all_locations
+add veenperceel boolean; 
+
+update public.all_locations gw
+set veenperceel = TRUE
+from public.input_parcels_2022 ip
+WHERE ST_Contains(ip.geom, gw.geom)
+
+select * from public.all_locations
+where veenperceel = True and distance_to_railroad_m > 10 and distance_to_road > 10 and distance_to_ditch > 5 
+
+drop table public.all_swm;
+create table public.all_swm as
+SELECT geom, ('nobv_'||l.locationkey::text) as source, l.name FROM nobv.location l
+JOIN nobv_timeseries.location_metadata mt on mt.well_id = l.locationkey
+JOIN nobv_timeseries.timeseries t on t.locationkey = l.locationkey
+JOIN nobv_timeseries.parameter p on p.parameterkey = t.parameterkey
+where p.id = 'SWM'
+UNION 
+SELECT geom, ('waterschappen_'||l.locationkey::text) as source, l.name FROM nobv.location l
+JOIN waterschappen_timeseries.location_metadata mt on mt.locationkey = l.locationkey --change into well_id
+JOIN waterschappen_timeseries.timeseries t on t.locationkey = l.locationkey
+JOIN waterschappen_timeseries.parameter p on p.parameterkey = t.parameterkey
+where p.id = 'SWM'
+
+
+SELECT
+    p.perceel_id,
+    x.well_id, x.source,
+    y.well_id, y.source
+FROM
+    public.input_parcels2022 p
+JOIN
+    all_locations x ON ST_DWithin(x.geom, p.geom, 0)
+JOIN
+    all_swm y ON ST_DWithin(y.geom, p.geom, 0);
+"""
