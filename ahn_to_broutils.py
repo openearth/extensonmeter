@@ -381,33 +381,33 @@ for t10 in dcttop10.keys():
 # and does not seme to add to the laction_metadata tables, may be left over code??
 # Turn the code off for now
 
-# for tbl in dcttable.keys():
-#     nwtbl = tbl + "_metadata"
-#     strsql = f"""select locationkey, 
-#     perceel_id, 
-#     aan_id, 
-#     type_peilb, 
-#     zomerpeil_, 
-#     winterpeil, 
-#     sloot_afst, 
-#     x_coord, 
-#     y_coord from {tbl} l
-#     join input_parcels_2022 ip on st_within(l.geom, ip.geom) """
-#     locs = engine.execute(strsql).fetchall()
-#     for i in range(len(locs)):
-#         lockey = locs[i][0]
-#         x = locs[i][1]
-#         y = locs[i][2]
-#         try:
-#             strsql = f"""insert into {nwtbl} (well_id, x_well,y_well) 
-#                         VALUES ({lockey},{x},{y})
-#                         ON CONFLICT(well_id)
-#                         DO UPDATE SET
-#                         x_well = {x}, y_well = {y}"""
-#             engine.execute(strsql)
-#         except Exception as e:
-#             # Handle the conflict (e.g., log the error or ignore it)
-#             print(f"Error: {e}. {lockey}.")
+for tbl in dcttable.keys():
+    nwtbl = tbl + "_metadata"
+    strsql = f"""select locationkey, 
+    perceel_id, 
+    aan_id, 
+    type_peilb, 
+    zomerpeil_, 
+    winterpeil, 
+    sloot_afst, 
+    x_coord, 
+    y_coord from {tbl} l
+    join input_parcels_2022 ip on st_within(l.geom, ip.geom) """
+    locs = engine.execute(strsql).fetchall()
+    for i in range(len(locs)):
+        lockey = locs[i][0]
+        x = locs[i][-2]
+        y = locs[i][-1]
+        try:
+            strsql = f"""insert into {nwtbl} (well_id, x_well,y_well) 
+                        VALUES ({lockey},{x},{y})
+                        ON CONFLICT(well_id)
+                        DO UPDATE SET
+                        x_well = {x}, y_well = {y}"""
+            engine.execute(strsql)
+        except Exception as e:
+            # Handle the conflict (e.g., log the error or ignore it)
+            print(f"Error: {e}. {lockey}.")
 
 
 # following section calculates the width of a parcel based on the geometry
@@ -515,8 +515,8 @@ JOIN nobv_timeseries.timeseries t on t.locationkey = l.locationkey
 JOIN nobv_timeseries.parameter p on p.parameterkey = t.parameterkey
 where p.id = 'SWM'
 UNION 
-SELECT geom, ('waterschappen_'||l.locationkey::text) as source, l.name FROM nobv.location l
-JOIN waterschappen_timeseries.location_metadata mt on mt.locationkey = l.locationkey --change into well_id
+SELECT geom, ('waterschappen_'||l.locationkey::text) as source, l.name FROM waterschappen_timeseries.location l
+JOIN waterschappen_timeseries.location_metadata mt on mt.well_id = l.locationkey --change into well_id
 JOIN waterschappen_timeseries.timeseries t on t.locationkey = l.locationkey
 JOIN waterschappen_timeseries.parameter p on p.parameterkey = t.parameterkey
 where p.id = 'SWM'

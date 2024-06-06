@@ -265,8 +265,18 @@ for root,subdirs,files in os.walk(root):
               'winter streefpeil (m NAP)':'winter_stage_m_nap',
               'WIS afstand (m)': 'wis_distance_m',
               'WIS diepte (m-mv)': 'wis_depth_m_sfl'})
+                
+                convert_dict = {'parcel_width': float,
+                                        'summer_stage_m_nap': float,
+                                        'winter_stage_m_nap': float,
+                                        'wis_distance_m': float,
+                                        'wis_depth_m_sfl': float
+                                        }
+
+                metadata = metadata.astype(convert_dict)
+                
                 metadata = metadata.replace('nan', np.nan)
-                metadata['locationkey'] = count
+                metadata['well_id'] = count
 
                 metadata.to_sql('location_metadata',engine,schema='nobv_timeseries',index=None,if_exists='append')
 

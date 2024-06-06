@@ -287,8 +287,19 @@ for root in paths:
                     'winter streefpeil (m NAP)':'winter_stage_m_nap',
                     'WIS afstand (m)': 'wis_distance_m',
                     'WIS diepte (m-mv)': 'wis_depth_m_sfl'})
+                        
+                        convert_dict = {'parcel_width': float,
+                                        'summer_stage_m_nap': float,
+                                        'winter_stage_m_nap': float,
+                                        'wis_distance_m': float,
+                                        'wis_depth_m_sfl': float
+                                        }
+
+                        metadata = metadata.astype(convert_dict)
+                        # TODO set a primary key if not done previously
+
                         metadata = metadata.replace('nan', np.nan)
-                        metadata['locationkey'] = locationkey
+                        metadata['well_id'] = locationkey
 
                         metadata.to_sql('location_metadata',engine,schema='waterschappen_timeseries',index=None,if_exists='append')
 
@@ -320,16 +331,16 @@ for root in paths:
                     else:
                         print('NOT SWM or GWM:', name)
 #     # %%
-# ALTER TABLE nobv_timeseries.location_metadata
-# ALTER parcel_width_m TYPE double precision USING parcel_width_m::double precision,
-# ALTER summer_stage_m_nap TYPE double precision USING summer_stage_m_nap::double precision,
-# ALTER winter_stage_m_nap TYPE double precision USING winter_stage_m_nap::double precision,
-# ALTER wis_distance_m TYPE double precision USING wis_distance_m::double precision,
-# ALTER wis_depth_m_sfl TYPE double precision USING wis_depth_m_sfl::double precision; 
-
 # ALTER TABLE nobv_timeseries.location_metadata DROP COLUMN trenches;
 # ALTER TABLE nobv_timeseries.location_metadata 
 # ADD trenches double precision[]; 
 
 # ALTER TABLE nobv_timeseries.location_metadata ADD PRIMARY KEY (well_id)
+# ALTER TABLE waterschappen_timeseries.location_metadata rename column locationkey to well_id
+
+# ALTER TABLE waterschappen_timeseries.location_metadata DROP COLUMN trenches;
+# ALTER TABLE waterschappen_timeseries.location_metadata 
+# ADD trenches double precision[]; 
+
+# ALTER TABLE waterschappen_timeseries.location_metadata ADD PRIMARY KEY (well_id)
 # ALTER TABLE waterschappen_timeseries.location_metadata rename column locationkey to well_id
