@@ -521,15 +521,25 @@ JOIN waterschappen_timeseries.timeseries t on t.locationkey = l.locationkey
 JOIN waterschappen_timeseries.parameter p on p.parameterkey = t.parameterkey
 where p.id = 'SWM'
 
-
-SELECT
-    p.perceel_id,
-    x.well_id, x.source,
-    y.well_id, y.source
-FROM
-    public.input_parcels2022 p
-JOIN
-    all_locations x ON ST_DWithin(x.geom, p.geom, 0)
-JOIN
-    all_swm y ON ST_DWithin(y.geom, p.geom, 0);
+#test query!
+WITH updated_values AS (
+    SELECT DISTINCT ON (x.source) 
+        x.source AS x_source, 
+        y.source AS y_source
+    FROM
+        public.peilvak_gw_sw p
+    JOIN
+        all_locations x ON ST_DWithin(x.geom, p.geom, 0)
+    LEFT JOIN
+        all_swm y ON ST_DWithin(y.geom, p.geom, 0)
+    ORDER BY 
+        x.source
+)
+UPDATE all_locations
+SET ditch_id = CASE 
+                WHEN updated_values.y_source IS NULL THEN NULL -- Keep ditch_id as NULL if y_source is NULL
+                ELSE updated_values.y_source -- Update ditch_id with y_source if it's not NULL
+            END
+FROM updated_values
+WHERE all_locations.source = updated_values.x_source;
 """
