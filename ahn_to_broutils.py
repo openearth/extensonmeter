@@ -458,16 +458,16 @@ for tbl in dcttable.keys():
 
 # remove the last union to get the following sql, this should be adjusted to the new datamodel
 """drop table all_locations;
-create table all_locations as
+create table all_gwm as
 SELECT geom, ('bro_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
 mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
 mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class FROM brotimeseries.location l
-JOIN brotimeseries.location_metadata mt on mt.well_id = l.locationkey
+JOIN bro_timeseries.location_metadata mt on mt.well_id = l.locationkey
 UNION 
 SELECT geom, ('hhnk_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
 mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
 mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class FROM hhnktimeseries.location l
-JOIN hhnktimeseries.location_metadata mt on mt.well_id = l.locationkey
+JOIN hhnk_timeseries.location_metadata mt on mt.well_id = l.locationkey
 UNION 
 SELECT geom, ('nobv_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
 mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
@@ -480,7 +480,7 @@ UNION
 SELECT geom, ('hdsr_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
 mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
 mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class FROM hdsrtimeseries.location l
-JOIN hdsrtimeseries.location_metadata mt on mt.well_id = l.locationkey
+JOIN hdsr_timeseries.location_metadata mt on mt.well_id = l.locationkey
 UNION 
 SELECT geom, ('wskip_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
 mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
@@ -496,16 +496,13 @@ JOIN waterschappen_timeseries.parameter p on p.parameterkey = t.parameterkey
 where p.id = 'GWM'"""
 
 """
-Alter table public.all_locations
+Alter table public.all_gwm
 add veenperceel boolean; 
 
-update public.all_locations gw
+update public.all_gwm gw
 set veenperceel = TRUE
 from public.input_parcels_2022 ip
 WHERE ST_Contains(ip.geom, gw.geom)
-
-select * from public.all_locations
-where veenperceel = True and distance_to_railroad_m > 10 and distance_to_road > 10 and distance_to_ditch > 5 
 
 drop table public.all_swm;
 create table public.all_swm as
@@ -522,10 +519,17 @@ JOIN waterschappen_timeseries.parameter p on p.parameterkey = t.parameterkey
 where p.id = 'SWM'
 
 #test query!
+
+drop table public.all_locations; 
+create table public.all_locations as
+select * from public.all_gwm
+where veenperceel = True and distance_to_railroad_m > 10 and distance_to_road_m > 10 and distance_to_ditch_m > 5 
+
 WITH updated_values AS (
     SELECT DISTINCT ON (x.source) 
         x.source AS x_source, 
-        y.source AS y_source
+        y.source AS y_source,
+        y.name as ditch_name
     FROM
         public.peilvak_gw_sw p
     JOIN
@@ -539,6 +543,10 @@ UPDATE all_locations
 SET ditch_id = CASE 
                 WHEN updated_values.y_source IS NULL THEN NULL -- Keep ditch_id as NULL if y_source is NULL
                 ELSE updated_values.y_source -- Update ditch_id with y_source if it's not NULL
+            END
+SET ditch_name = CASE 
+                WHEN updated_values.ditch_name IS NULL THEN NULL -- Keep ditch_id as NULL if y_source is NULL
+                ELSE updated_values.ditch_name -- Update ditch_id with y_source if it's not NULL
             END
 FROM updated_values
 WHERE all_locations.source = updated_values.x_source;
