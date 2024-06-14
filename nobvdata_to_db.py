@@ -45,8 +45,9 @@ import matplotlib.pyplot as plt
 
 # third party packages
 from sqlalchemy.sql.expression import update
-from sqlalchemy import exc,func
+from sqlalchemy import exc,func, ARRAY, Float
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION
 
 # local procedures
 from orm_timeseries_nobv import Base,FileSource,Location,Parameter,Unit,TimeSeries,TimeSeriesValuesAndFlags,Flags
@@ -150,23 +151,22 @@ def extract_info_from_text_file(filename):
 
 def find_locationkey():
     #find the max locationkey which is currently stored in the database
-    stmt="""select max(locationkey) from waterschappen_timeseries.location;"""
+    stmt="""select max(locationkey) from nobv_timeseries.location;"""
     r = engine.execute(stmt).fetchall()[0][0]
     return r 
 
 def find_if_stored(name):
     #find the max locationkey which is currently stored in the database
     try:
-        stmt="""select locationkey from waterschappen_timeseries.location
-        where name = {n};""".format(n=name)
+        stmt="""select locationkey from nobv_timeseries.location
+        where name = '{n}';""".format(n=name)
         r = engine.execute(stmt).fetchall()[0][0]
-        return True #mean yes / True it is stored
+        return r, True #mean yes / True it is stored
     except:
-        return False #means False it is not stored
+        return False
 
 #TODO assign primary key to the location_metadata table (well_id)
-#TODO change the locationkey into well_id
-# TODO change the trenches into a list instead of a double precision
+
 # set reference to config file
 local = False
 if local:
@@ -194,9 +194,6 @@ cols_metatable=['slootafstand (m)', 'zomer streefpeil (m NAP)',
        'winter streefpeil (m NAP)', 
        'greppelafstand (m)', 'greppeldiepte (m-mv)', 'WIS afstand (m)', 'WIS diepte (m-mv)']
 
-# drop columns 'greppel aanwezig (ja/nee)','drains aanwezig (ja/nee)', 'WIS aanwezig (ja/nee)','drainafstand (m)','draindiepte (m-mv)'
-
-
 new_loctabel = ['name', 'x', 'y', 'tubetop', 'tubebot', 'altitude_msl']
 new_loc_swm = [ 'name', 'x', 'y']
 timeseries = ['datetime','scalarvalue']                                    
@@ -208,7 +205,6 @@ for root,subdirs,files in os.walk(root):
             data=os.path.basename(file).split("_", 1)[0] #find in name it is GWM or SWM
             nrrows, colnames, xycols, datum = skiprows(os.path.join(root,file))
             
-            locationkey=count
             fskey = loadfilesource(os.path.join(root,file),fc,f"{name}_{data}")
             # need to update part in the location table and another part in the location_metadata
             
@@ -218,86 +214,110 @@ for root,subdirs,files in os.walk(root):
                 df= extract_info_from_text_file(os.path.join(root,file))
                 # print(df.columns)
                 df.columns = new_loc_swm
-                df['locationkey'] = count
-                df['epsgcode'] = 28992
-                df['filesourcekey']=fskey[0][0] 
+                #assign a new locationkey
+                #first find if location is already stored in the database, if not stored, the following code will be run
+                y = find_if_stored(name)
+                # print('Not Updating:', name)
+                if y == False: 
+                    print('Updating:', name)
+                    x= find_locationkey()
+                    if x is None:
+                        locationkey=0
+                    else:
+                        locationkey = x+1
+                    df['locationkey'] = locationkey
+                    df['epsgcode'] = 28992
+                    df['filesourcekey']=fskey[0][0] 
 
-                df.to_sql('location',engine,schema='nobv_timeseries',index=None,if_exists='append')
-                stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='nobv_timeseries',t='location')
-                engine.execute(stmt)
+                    df.to_sql('location',engine,schema='nobv_timeseries',index=None,if_exists='append')
+                    stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='nobv_timeseries',t='location')
+                    engine.execute(stmt)
 
-                skeyz = sserieskey(fc, pkeyswm, locationkey, fskey[0],timestep='nonequidistant')
-                flag = flagkeyswm
+                    skeyz = sserieskey(fc, pkeyswm, locationkey, fskey[0],timestep='nonequidistant')
+                    flag = flagkeyswm
 
-                dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
-                dfx.columns = timeseries
-                dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y')
-                dfx=dfx.dropna() 
+                    dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
+                    dfx.columns = timeseries
+                    dfx['datetime'] = pd.to_datetime(dfx['datetime'], infer_datetime_format=True)
+                    dfx=dfx.dropna() 
 
-                r=latest_entry(skeyz)
+                    r=latest_entry(skeyz)
 
-                if r!=dfx['datetime'].iloc[-1]:
-                    dfx['timeserieskey'] = skeyz 
-                    dfx['flags' ] = flag
-                    dfx.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='nobv_timeseries')
-                else:
-                    print('not updating')
+                    if r!=dfx['datetime'].iloc[-1]:
+                        dfx['timeserieskey'] = skeyz 
+                        dfx['flags' ] = flag
+                        dfx.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='nobv_timeseries')
+                    else:
+                        print('not updating')
             elif data == 'GWM':
                 df= extract_info_from_text_file(os.path.join(root,file))
                 locationtable = df[cols_loctable]
                 locationtable.columns = new_loctabel
-                #add epsg and add locationkey
-                locationtable['locationkey'] = count
-                locationtable['epsgcode'] = 28992
-                locationtable['filesourcekey']=fskey[0][0] 
 
-                locationtable.to_sql('location',engine,schema='nobv_timeseries',index=None,if_exists='append')
-                stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='nobv_timeseries',t='location')
-                engine.execute(stmt)
+                y = find_if_stored(name) #check if stored in DB, if not stored, the following code will be run
+                if y == False: 
+                    print('Updating:', name)
+                    x= find_locationkey()
+                    if x is None:
+                        locationkey=0
+                    else:
+                        locationkey = x+1 
+                    #add epsg and add locationkey
+                    locationtable['locationkey'] = locationkey
+                    locationtable['epsgcode'] = 28992
+                    locationtable['filesourcekey']=fskey[0][0] 
 
-                metadata = df[cols_metatable]
-                # metadata.columns = metadata.columns.str.replace(r'[()]', '')
-                # metadata.columns = metadata.columns.str.replace(r'[ /-]', '_', regex=True)
-                metadata = metadata.rename(columns={'slootafstand (m)': 'parcel_width_m', 
-                                                    'greppelafstand (m)':'trenches',
-                                                    'greppeldiepte (m-mv)':'trench_depth_m_sfl',
-              'zomer streefpeil (m NAP)': 'summer_stage_m_nap', 
-              'winter streefpeil (m NAP)':'winter_stage_m_nap',
-              'WIS afstand (m)': 'wis_distance_m',
-              'WIS diepte (m-mv)': 'wis_depth_m_sfl'})
-                
-                convert_dict = {'parcel_width': float,
-                                        'summer_stage_m_nap': float,
-                                        'winter_stage_m_nap': float,
-                                        'wis_distance_m': float,
-                                        'wis_depth_m_sfl': float
-                                        }
+                    locationtable.to_sql('location',engine,schema='nobv_timeseries',index=None,if_exists='append')
+                    stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='nobv_timeseries',t='location')
+                    engine.execute(stmt)
 
-                metadata = metadata.astype(convert_dict)
-                
-                metadata = metadata.replace('nan', np.nan)
-                metadata['well_id'] = count
+                    metadata = df[cols_metatable]
+                    
+                    metadata = metadata.rename(columns={'slootafstand (m)': 'parcel_width_m', 
+                                                        'greppelafstand (m)':'trenches',
+                                                        'greppeldiepte (m-mv)':'trench_depth_m_sfl',
+                    'zomer streefpeil (m NAP)': 'summer_stage_m_nap', 
+                    'winter streefpeil (m NAP)':'winter_stage_m_nap',
+                    'WIS afstand (m)': 'wis_distance_m',
+                    'WIS diepte (m-mv)': 'wis_depth_m_sfl'})
+                    
+                    convert_dict = {'parcel_width_m': float,
+                                            'summer_stage_m_nap': float,
+                                            'winter_stage_m_nap': float,
+                                            'wis_distance_m': float,
+                                            'wis_depth_m_sfl': float
+                                            }
 
-                metadata.to_sql('location_metadata',engine,schema='nobv_timeseries',index=None,if_exists='append')
+                    metadata = metadata.astype(convert_dict)
+                    
+                    metadata = metadata.replace('nan', np.nan)
+                    metadata['well_id'] = locationkey
+                    metadata['trenches'] = metadata['trenches'].apply(lambda x: [x])
 
-                skeyz = sserieskey(fc, pkeygwm, locationkey, fskey[0],timestep='nonequidistant')
-                flag = flagkeygwm
+                    dtype = {
+                        'trenches': ARRAY(DOUBLE_PRECISION) #making sure trenches is exported as a double precision array
+                    }
 
-                dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
-                dfx.columns = timeseries
-                dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y')
-                dfx=dfx.dropna() 
+                    metadata.to_sql('location_metadata',engine,schema='nobv_timeseries',index=None,if_exists='append', dtype=dtype)
 
-                r=latest_entry(skeyz)
+                    skeyz = sserieskey(fc, pkeygwm, locationkey, fskey[0],timestep='nonequidistant')
+                    flag = flagkeygwm
 
-                if r!=dfx['datetime'].iloc[-1]:
-                    dfx['timeserieskey'] = skeyz 
-                    dfx['flags' ] = flag
-                    dfx.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='nobv_timeseries')
+                    dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
+                    dfx.columns = timeseries
+                    dfx['datetime'] = pd.to_datetime(dfx['datetime'], infer_datetime_format=True)
+                    dfx=dfx.dropna() 
+
+                    r=latest_entry(skeyz)
+
+                    if r!=dfx['datetime'].iloc[-1]:
+                        dfx['timeserieskey'] = skeyz 
+                        dfx['flags' ] = flag
+                        dfx.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='nobv_timeseries')
+                    else:
+                        print('not updating')
+
+
                 else:
-                    print('not updating')
-
-
-            else:
-                print('NOT SWM or GWM:', name)
+                    print('NOT SWM or GWM:', name)
 # %%

@@ -176,7 +176,7 @@ session,engine = establishconnection(fc)
 path_1 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Rivierenland'
 path_2 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Delfland\SOMERS_DATA'
 path_3 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\HDSR\geschikte_data'
-ws = ['Rivierenland', 'Delfland']
+ws = ['Rivierenland', 'Delfland', 'HDSR']
 
 # Create a list of paths
 # paths = [path_1, path_2]
@@ -193,13 +193,21 @@ flagkeygwm=sflag(fc,'Grondwatermeetpuntt-ruwe data', 'Grondwatermeetpunt-ruwe da
 flagkeyswm=sflag(fc,'Slootwatermeetpunt-ruwe data', 'Slootwatermeetpunt-ruwe data')
 
 # %%
-# Example usage:
-cols_loctable=['naam_meetpunt', 'x-coor', 'y-coor','top filter (m-mv)','onderkant filter (m-mv)','maaiveld (m NAP)']
-cols_metatable=['slootafstand (m)', 'zomer streefpeil (m NAP)',
-       'winter streefpeil (m NAP)', 
-       'greppelafstand (m)', 'greppeldiepte (m-mv)', 'WIS afstand (m)', 'WIS diepte (m-mv)']
-
-# drop columns 'greppel aanwezig (ja/nee)','drains aanwezig (ja/nee)', 'WIS aanwezig (ja/nee)','drainafstand (m)','draindiepte (m-mv)'
+#define which columns will be selected
+cols_loctable=['naam_meetpunt', 
+               'x-coor', 
+               'y-coor',
+               'top filter (m-mv)',
+               'onderkant filter (m-mv)'
+               'maaiveld (m NAP)']
+cols_metatable=['slootafstand (m)', 
+                'zomer streefpeil (m NAP)',
+                'winter streefpeil (m NAP)', 
+                'greppelafstand (m)',
+                'greppeldiepte (m-mv)', 
+                'WIS afstand (m)', 
+                'WIS diepte (m-mv)'
+                ]
 
 new_loctabel = ['name', 'x', 'y', 'tubetop', 'tubebot', 'altitude_msl']
 new_loc_swm = [ 'name', 'x', 'y']
@@ -215,7 +223,7 @@ for root in paths:
                 nrrows, colnames, xycols, datum = skiprows(os.path.join(root,file))
 
                 #assign a new locationkey
-                #first find if location is already stored in the database
+                #first find if location is already stored in the database, if not stored, the following code will be run
                 y = find_if_stored(name)
                 # print('Not Updating:', name)
                 if y == False: 
@@ -226,13 +234,10 @@ for root in paths:
                     else:
                         locationkey = x+1
                     fskey = loadfilesource(os.path.join(root,file),fc,f"{name}_{data}")
-                    # need to update part in the location table and another part in the location_metadata
                     
                     dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
-                    # print(dfx)
                     if data == 'SWM':
                         df= extract_info_from_text_file(os.path.join(root,file))
-                        # print(df.columns)
                         df.columns = new_loc_swm
 
                         string_columns = df.select_dtypes(include=['object']).columns
@@ -254,11 +259,11 @@ for root in paths:
 
                         dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
                         dfx.columns = timeseries
-                        dfx['datetime'] = dfx['datetime'].str.replace("24:00:00", "00:00:00")
+                        dfx['datetime'] = dfx['datetime'].str.replace("24:00:00", "00:00:00") #if they do not use the correct datetime format
                         dfx['datetime'] = pd.to_datetime(dfx['datetime'], infer_datetime_format=True)
                         dfx=dfx.dropna() 
 
-                        r=latest_entry(skeyz)
+                        r=latest_entry(skeyz) #find if there was already a timeseries stored in the database
                         duplicate_rows = dfx[dfx.duplicated()] #find duplicated entries
                         # print(duplicate_rows)
                         dfx=dfx.drop_duplicates()
@@ -277,8 +282,8 @@ for root in paths:
                         locationtable = df[cols_loctable]
                         locationtable.columns = new_loctabel
 
-                        string_columns = locationtable.select_dtypes(include=['object']).columns
-                        for col in string_columns:
+                        string_columns = locationtable.select_dtypes(include=['object']).columns #when people send things with comma's instead of points as delimiters
+                        for col in string_columns: #convert str data 
                             if col != 'name':
                                 locationtable[col] = locationtable[col].apply(lambda x: x.replace(',', '.'))
                                 locationtable[col] = locationtable[col].astype(float)
@@ -288,7 +293,7 @@ for root in paths:
                         locationtable['epsgcode'] = 28992
                         locationtable['filesourcekey']=fskey[0][0] 
 
-                        y = find_if_stored(name)
+                        y = find_if_stored(name) #check if stored in DB, if not stored, the following code will be run
                         if y == False: 
                             print('Updating:', name)
                             x= find_locationkey()
@@ -316,20 +321,21 @@ for root in paths:
                                     metadata[col] = metadata[col].apply(lambda x: x.replace(',', '.'))
                                     metadata[col] = metadata[col].astype(float)
                            
-                            convert_dict = {'parcel_width_m': float,
-                                            'summer_stage_m_nap': float,
-                                            'winter_stage_m_nap': float,
-                                            'wis_distance_m': float,
-                                            'wis_depth_m_sfl': float
-                                            }
-                            metadata = metadata.astype(convert_dict)
+                            # convert_dict = {'parcel_width_m': float,
+                            #                 'summer_stage_m_nap': float,
+                            #                 'winter_stage_m_nap': float,
+                            #                 'wis_distance_m': float,
+                            #                 'wis_depth_m_sfl': float
+                            #                 }
+                            # metadata = metadata.astype(convert_dict)
                             # TODO set a primary key if not done previously
 
                             metadata = metadata.replace('nan', np.nan)
                             metadata['trenches'] = metadata['trenches'].apply(lambda x: [x])
                             metadata['well_id'] = locationkey
+
                             dtype = {
-                                'trenches': ARRAY(DOUBLE_PRECISION)
+                                'trenches': ARRAY(DOUBLE_PRECISION) #making sure trenches is exported as a double precision array
                             }
                             metadata.to_sql('location_metadata',engine,schema='waterschappen_timeseries',index=None,if_exists='append', dtype=dtype)
 
@@ -343,9 +349,9 @@ for root in paths:
                             dfx=dfx.dropna() 
 
                             r=latest_entry(skeyz)
-                            duplicate_rows = dfx[dfx.duplicated()] #find duplicated entries
+                            duplicate_rows = dfx[dfx.duplicated()] #if data has duplicated
                             # print(duplicate_rows)
-                            dfx=dfx.drop_duplicates()
+                            dfx=dfx.drop_duplicates() #remove the duplicated
 
                             try:
                                 if r!=dfx['datetime'].iloc[-1]:

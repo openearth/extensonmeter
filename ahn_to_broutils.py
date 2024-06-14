@@ -77,9 +77,6 @@ dctcolumns["wis_distance_m"] = "double precision"
 dctcolumns["wis_depth_m_sfl"] = "double precision"
 dctcolumns["source"] = "text"
 
-
-# TODO --> check parameter (process only groundwater wells for the master_metadata view) containing the TODO below 
-# TODO --> join the SWM with corresponding GWM 
 # TODO --> nadenken over het gebruik van source ipv well_id in de final master metadata
 
 # globals
@@ -101,8 +98,8 @@ dcttable = {}
 # dcttable["hdsrtimeseries.location"] = "placeholder"
 # dcttable["hhnktimeseries.location"] = "placeholder"
 # dcttable["timeseries.location"] = "placeholder"
-dcttable["waterschappen_timeseries.location"] = "placeholder" #handmetingen
-# dcttable["nobv_timeseries.location"] = "placeholder" #nobv handmatige bewerkingen data 
+# dcttable["waterschappen_timeseries.location"] = "placeholder" #handmetingen
+dcttable["nobv_timeseries.location"] = "placeholder" #nobv handmatige bewerkingen data 
 
 
 # Get a unique temporary file
@@ -461,17 +458,17 @@ for tbl in dcttable.keys():
 create table all_gwm as
 SELECT geom, ('bro_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
 mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
-mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class FROM brotimeseries.location l
+mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class, mt.x_well, mt.y_well FROM bro_timeseries.location l
 JOIN bro_timeseries.location_metadata mt on mt.well_id = l.locationkey
 UNION 
 SELECT geom, ('hhnk_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
 mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
-mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class FROM hhnktimeseries.location l
+mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class, mt.x_well, mt.y_well FROM hhnk_timeseries.location l
 JOIN hhnk_timeseries.location_metadata mt on mt.well_id = l.locationkey
 UNION 
 SELECT geom, ('nobv_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
 mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
-mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class FROM nobv_timeseries.location l
+mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class, mt.x_well, mt.y_well FROM nobv_timeseries.location l
 JOIN nobv_timeseries.location_metadata mt on mt.well_id = l.locationkey
 JOIN nobv_timeseries.timeseries t on t.locationkey = l.locationkey
 JOIN nobv_timeseries.parameter p on p.parameterkey = t.parameterkey
@@ -479,17 +476,17 @@ where p.id = 'GWM'
 UNION 
 SELECT geom, ('hdsr_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
 mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
-mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class FROM hdsrtimeseries.location l
+mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class, mt.x_well, mt.y_well FROM hdsr_timeseries.location l
 JOIN hdsr_timeseries.location_metadata mt on mt.well_id = l.locationkey
 UNION 
 SELECT geom, ('wskip_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
 mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
-mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class FROM timeseries.location l
-JOIN timeseries.location_metadata mt on mt.well_id = l.locationkey
+mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class, mt.x_well, mt.y_well FROM wskip_timeseries.location l
+JOIN wkip_timeseries.location_metadata mt on mt.well_id = l.locationkey
 UNION
 SELECT geom, ('waterschappen_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
 mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
-mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class FROM waterschappen_timeseries.location l
+mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class, mt.x_well, mt.y_well FROM waterschappen_timeseries.location l
 JOIN waterschappen_timeseries.location_metadata mt on mt.well_id = l.locationkey
 JOIN waterschappen_timeseries.timeseries t on t.locationkey = l.locationkey
 JOIN waterschappen_timeseries.parameter p on p.parameterkey = t.parameterkey
