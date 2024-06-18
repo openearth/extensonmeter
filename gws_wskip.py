@@ -32,6 +32,10 @@ Created on Tue Jul 19 12:05:14 2022
 # your own tools.
 
 """
+
+# TODO -- bear in mind that the target shema's are renamed!!!
+
+
 # base link is https://gis.wetterskipfryslan.nl/arcgis/rest/services/Grondwatersite_mpn/MapServer/1/query?outFields=*&orderByFields=MONSTERDATUM&f=json&where=TELEMETRIELOCATIEID%3D%27L6206%27+AND+MONSTERDATUM+%3E+date+%272021-8-2+00%3A00%3A00%27+
 
 import os

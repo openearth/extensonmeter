@@ -10,7 +10,7 @@ PostgreSQL/PostGIS
 
 #  Copyright notice
 #   --------------------------------------------------------------------
-#   Copyright (C) 2022 Deltares for Projects with a FEWS datamodel in 
+#   Copyright (C) 2022 Deltares for Projects with a FEWS datamodel in
 #                 PostgreSQL/PostGIS database used in Water Information Systems
 #   Gerrit Hendriksen@deltares.nl
 #
@@ -35,8 +35,14 @@ PostgreSQL/PostGIS
 # your own tools.
 
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy  import Sequence, ForeignKey, Column, UniqueConstraint,PrimaryKeyConstraint
-from sqlalchemy  import Integer, Float, DateTime, String, Text
+from sqlalchemy import (
+    Sequence,
+    ForeignKey,
+    Column,
+    UniqueConstraint,
+    PrimaryKeyConstraint,
+)
+from sqlalchemy import Integer, Float, DateTime, String, Text
 from geoalchemy2 import Geometry
 from sqlalchemy.dialects import postgresql
 
@@ -46,130 +52,202 @@ Base = declarative_base()
 FEWS data model has been partially adopted. Due to completion of the datamodel with borehole datamodel the timeseries datamodel is split in 
 several parts. A common part of the datamodel (location, filesource, parameter and unit tables) are now considered as shared tables over various schemas
 """
-   
+
 
 class TimeStep(Base):
-    __tablename__  = 'timesteps'
-    __table_args__ = {'schema': 'gwmonitoring'}
-    timestepkey    = Column(Integer,Sequence('gwmonitoring.timesteps_timestepkey_seq'),primary_key=True)
-    id             = Column(String, unique=True,nullable=False)
-    label          = Column(String)
+    __tablename__ = "timesteps"
+    __table_args__ = {"schema": "bro_timeseries"}
+    timestepkey = Column(
+        Integer, Sequence("bro_timeseries.timesteps_timestepkey_seq"), primary_key=True
+    )
+    id = Column(String, unique=True, nullable=False)
+    label = Column(String)
+
 
 class TimeSeries(Base):
-    __tablename__  = 'timeseries'
-    __table_args__ = {'schema': 'gwmonitoring'}
-    timeserieskey          = Column(Integer, Sequence('gwmonitoring.timeserieskeys_timeserieskey_seq'),primary_key=True)
-    locationkey            = Column(Integer, ForeignKey('gwmonitoring.location.locationkey', ondelete='CASCADE'))
-    parameterkey           = Column(Integer, ForeignKey('gwmonitoring.parameter.parameterkey', ondelete='CASCADE'))
-    timestepkey            = Column(Integer, ForeignKey('gwmonitoring.timesteps.timestepkey', ondelete='CASCADE'))
-    filesourcekey          = Column(Integer, ForeignKey('gwmonitoring.filesource.filesourcekey', ondelete='CASCADE'))
-    valuetype              = Column(Integer, nullable=False,default=0)
-    modificationtime       = Column(DateTime, nullable=False)
-    
+    __tablename__ = "timeseries"
+    __table_args__ = {"schema": "bro_timeseries"}
+    timeserieskey = Column(
+        Integer,
+        Sequence("bro_timeseries.timeserieskeys_timeserieskey_seq"),
+        primary_key=True,
+    )
+    locationkey = Column(
+        Integer, ForeignKey("bro_timeseries.location.locationkey", ondelete="CASCADE")
+    )
+    parameterkey = Column(
+        Integer, ForeignKey("bro_timeseries.parameter.parameterkey", ondelete="CASCADE")
+    )
+    timestepkey = Column(
+        Integer, ForeignKey("bro_timeseries.timesteps.timestepkey", ondelete="CASCADE")
+    )
+    filesourcekey = Column(
+        Integer,
+        ForeignKey("bro_timeseries.filesource.filesourcekey", ondelete="CASCADE"),
+    )
+    valuetype = Column(Integer, nullable=False, default=0)
+    modificationtime = Column(DateTime, nullable=False)
+
+
 class TimeSeriesComments(Base):
-    __tablename__  = 'timeseriescomments'
-    __table_args__ = {'schema': 'gwmonitoring'}
-    timeserieskey  = Column(Integer,ForeignKey('gwmonitoring.timeseries.timeserieskey', ondelete='CASCADE'),primary_key=True)
-    datetime       = Column(DateTime, primary_key = True)
-    commenttext    = Column(String)
+    __tablename__ = "timeseriescomments"
+    __table_args__ = {"schema": "bro_timeseries"}
+    timeserieskey = Column(
+        Integer,
+        ForeignKey("bro_timeseries.timeseries.timeserieskey", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    datetime = Column(DateTime, primary_key=True)
+    commenttext = Column(String)
+
 
 class Users(Base):
-    __tablename__  = 'users'
-    __table_args__ = {'schema': 'gwmonitoring'}
-    userkey        = Column(Integer,Sequence('gwmonitoring.users_userkey_seq'),primary_key=True)
-    id             = Column(String, unique=True,nullable=False)
-    name           = Column(String)
+    __tablename__ = "users"
+    __table_args__ = {"schema": "bro_timeseries"}
+    userkey = Column(
+        Integer, Sequence("bro_timeseries.users_userkey_seq"), primary_key=True
+    )
+    id = Column(String, unique=True, nullable=False)
+    name = Column(String)
+
 
 class Flags(Base):
-    __tablename__  = 'flags'
-    __table_args__ = {'schema': 'gwmonitoring'}
-    flagkey        = Column(Integer,Sequence('gwmonitoring.users_flagkey_seq'),primary_key=True)
-    id             = Column(String, unique=True,nullable=False)
-    name           = Column(String)    
+    __tablename__ = "flags"
+    __table_args__ = {"schema": "bro_timeseries"}
+    flagkey = Column(
+        Integer, Sequence("bro_timeseries.users_flagkey_seq"), primary_key=True
+    )
+    id = Column(String, unique=True, nullable=False)
+    name = Column(String)
+
 
 class TimeSeriesManualEditsHistory(Base):
-    __tablename__  = 'timeseriesmanualeditshistory'
-    __table_args__ = {'schema': 'gwmonitoring'}
-    timeserieskey      = Column(Integer,ForeignKey('gwmonitoring.timeseries.timeserieskey', ondelete='CASCADE'),primary_key=True)
-    editdatetime   = Column(DateTime, primary_key = True)
-    datetime       = Column(DateTime, primary_key = True)
-    userkey        = Column(Integer,ForeignKey('gwmonitoring.users.userkey', ondelete='CASCADE'))
-    scalarvalue    = Column(Float)
-    flags          = Column(Integer,nullable=False)
-    commenttext    = Column(String)
+    __tablename__ = "timeseriesmanualeditshistory"
+    __table_args__ = {"schema": "bro_timeseries"}
+    timeserieskey = Column(
+        Integer,
+        ForeignKey("bro_timeseries.timeseries.timeserieskey", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    editdatetime = Column(DateTime, primary_key=True)
+    datetime = Column(DateTime, primary_key=True)
+    userkey = Column(
+        Integer, ForeignKey("bro_timeseries.users.userkey", ondelete="CASCADE")
+    )
+    scalarvalue = Column(Float)
+    flags = Column(Integer, nullable=False)
+    commenttext = Column(String)
+
 
 class TimeSeriesValuesAndFlags(Base):
-    __tablename__  = 'timeseriesvaluesandflags'
-    __table_args__ = (PrimaryKeyConstraint('timeserieskey', 'datetime','scalarvalue'),{'schema': 'gwmonitoring'})
-    timeserieskey  = Column(Integer, ForeignKey('gwmonitoring.timeseries.timeserieskey', ondelete='CASCADE'), nullable = False)
-    datetime       = Column(DateTime, nullable=False)
-    scalarvalue    = Column(Float,nullable=False)
-    flags          = Column(Integer,ForeignKey('gwmonitoring.flags.flagkey', ondelete='CASCADE'), nullable=False)
+    __tablename__ = "timeseriesvaluesandflags"
+    __table_args__ = (
+        PrimaryKeyConstraint("timeserieskey", "datetime", "scalarvalue"),
+        {"schema": "bro_timeseries"},
+    )
+    timeserieskey = Column(
+        Integer,
+        ForeignKey("bro_timeseries.timeseries.timeserieskey", ondelete="CASCADE"),
+        nullable=False,
+    )
+    datetime = Column(DateTime, nullable=False)
+    scalarvalue = Column(Float, nullable=False)
+    flags = Column(
+        Integer,
+        ForeignKey("bro_timeseries.flags.flagkey", ondelete="CASCADE"),
+        nullable=False,
+    )
+
 
 """records pump history"""
+
+
 class Parameter(Base):
-    __tablename__      = 'parameter'
-    __table_args__     = {'schema': 'gwmonitoring'}
-    parameterkey       = Column(Integer,Sequence('gwmonitoring.parameter_parameterkey_seq'),primary_key=True)
-    id                 = Column(String)    
-    name               = Column(String)
-    unitkey            = Column(Integer, ForeignKey('gwmonitoring.unit.unitkey', ondelete='CASCADE'))
-    compartment        = Column(String)
-    shortname          = Column(String)
-    description        = Column(String)
-    valueresolution    = Column(Float)
-    waarnemingssoort   = Column(String)
- 
+    __tablename__ = "parameter"
+    __table_args__ = {"schema": "bro_timeseries"}
+    parameterkey = Column(
+        Integer, Sequence("bro_timeseries.parameter_parameterkey_seq"), primary_key=True
+    )
+    id = Column(String)
+    name = Column(String)
+    unitkey = Column(
+        Integer, ForeignKey("bro_timeseries.unit.unitkey", ondelete="CASCADE")
+    )
+    compartment = Column(String)
+    shortname = Column(String)
+    description = Column(String)
+    valueresolution = Column(Float)
+    waarnemingssoort = Column(String)
+
+
 class Unit(Base):
-    __tablename__      = 'unit'
-    __table_args__     = {'schema': 'gwmonitoring'}    
-    unitkey            = Column(Integer,Sequence('gwmonitoring.unitdesc_seq'),primary_key=True)
-    unit               = Column(String,nullable=False) 
-    unitdescription    = Column(String) 
+    __tablename__ = "unit"
+    __table_args__ = {"schema": "bro_timeseries"}
+    unitkey = Column(Integer, Sequence("bro_timeseries.unitdesc_seq"), primary_key=True)
+    unit = Column(String, nullable=False)
+    unitdescription = Column(String)
+
 
 class FileSource(Base):
-    __tablename__  ='filesource'
-    __table_args__ = {'schema': 'gwmonitoring'}    
-    filesourcekey  = Column(Integer,Sequence('gwmonitoring.filesource_seq'),primary_key=True)
-    deviceid       = Column(String)
-    filesource     = Column(String,nullable=False)
-    remark         = Column(String)
+    __tablename__ = "filesource"
+    __table_args__ = {"schema": "bro_timeseries"}
+    filesourcekey = Column(
+        Integer, Sequence("bro_timeseries.filesource_seq"), primary_key=True
+    )
+    deviceid = Column(String)
+    filesource = Column(String, nullable=False)
+    remark = Column(String)
     lasttransactionid = Column(Integer)
-    
+
     def __repr__(self):
-        return "<FileSource: filesourcekey=%s, lasttransactionid=%s) >" % (self.filesourcekey, self.lasttransactionid)  
+        return "<FileSource: filesourcekey=%s, lasttransactionid=%s) >" % (
+            self.filesourcekey,
+            self.lasttransactionid,
+        )
+
 
 class Transaction(Base):
-    __tablename__   ='transaction'
-    __table_args__  = {'schema': 'gwmonitoring'}    
-    transactionkey  = Column(Integer,Sequence('gwmonitoring.transaction_seq'),primary_key=True)
-    timeserieskey   = Column(Integer, ForeignKey('gwmonitoring.timeseries.timeserieskey', ondelete='CASCADE'), nullable = False)
+    __tablename__ = "transaction"
+    __table_args__ = {"schema": "bro_timeseries"}
+    transactionkey = Column(
+        Integer, Sequence("bro_timeseries.transaction_seq"), primary_key=True
+    )
+    timeserieskey = Column(
+        Integer,
+        ForeignKey("bro_timeseries.timeseries.timeserieskey", ondelete="CASCADE"),
+        nullable=False,
+    )
     transactiontime = Column(DateTime, nullable=False)
-    periodstart     = Column(DateTime, nullable=False)
-    periodend       = Column(DateTime, nullable=False)
-    transactionid   = Column(Integer,nullable=False)
+    periodstart = Column(DateTime, nullable=False)
+    periodend = Column(DateTime, nullable=False)
+    transactionid = Column(Integer, nullable=False)
+
 
 class Location(Base):
-    __tablename__  = 'location'
-    __table_args__ = {'schema': 'gwmonitoring'}
-    locationkey        = Column(Integer,Sequence('gwmonitoring.location_locationkey_seq1'),primary_key=True)    #key
-    filesourcekey      = Column(Integer,ForeignKey('gwmonitoring.filesource.filesourcekey', ondelete='CASCADE'))  #fskey
-    diverid            = Column(String)
-    filterid           = Column(Integer)
-    filterdepth        = Column(Float)
-    name               = Column(String)
-    shortname          = Column(String)
-    description        = Column(String)
-    x                  = Column(Float)
-    y                  = Column(Float)
-    z                  = Column(Float)
-    epsgcode           = Column(Integer)
-    geom               = Column(Geometry('POINT', srid=28992))
-    altitude_msl       = Column(Float) #hoogte maaiveld
-    tubetop            = Column(Float)
-    tubebot            = Column(Float)
-    cablelength        = Column(Float) #kabellengte
+    __tablename__ = "location"
+    __table_args__ = {"schema": "bro_timeseries"}
+    locationkey = Column(
+        Integer, Sequence("bro_timeseries.location_locationkey_seq1"), primary_key=True
+    )  # key
+    filesourcekey = Column(
+        Integer,
+        ForeignKey("bro_timeseries.filesource.filesourcekey", ondelete="CASCADE"),
+    )  # fskey
+    diverid = Column(String)
+    filterid = Column(Integer)
+    filterdepth = Column(Float)
+    name = Column(String)
+    shortname = Column(String)
+    description = Column(String)
+    x = Column(Float)
+    y = Column(Float)
+    z = Column(Float)
+    epsgcode = Column(Integer)
+    geom = Column(Geometry("POINT", srid=28992))
+    altitude_msl = Column(Float)  # hoogte maaiveld
+    tubetop = Column(Float)
+    tubebot = Column(Float)
+    cablelength = Column(Float)  # kabellengte
 
     def __repr__(self):
-        return "<Location: locationkey=%s)>" % (self.locationkey)   
-    
+        return "<Location: locationkey=%s)>" % (self.locationkey)

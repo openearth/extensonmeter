@@ -213,9 +213,9 @@ def location(
             session.add(f)
             session.commit()
             if epsg == 28992:
-                strsql = "update timeseries.location set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null"
+                strsql = "update bro_timeseries.location set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null"
             else:
-                strsql = "update timeseries.location set geom = st_transform(st_setsrid(st_point(x,y),epsgcode),28992) where geom is null"
+                strsql = "update bro_timeseries.location set geom = st_transform(st_setsrid(st_point(x,y),epsgcode),28992) where geom is null"
             engine.execute(strsql)
         else:
             print("name already stored in location table", name, f.locationkey)
