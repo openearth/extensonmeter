@@ -200,11 +200,11 @@ def lastgwstage(engine, gwslocation, t, pid, fid):
         fid (integer): filesourckey
     """
     strsql = f"""
-    select max(datetime) from timeseries.location l
-    join timeseries.timeseries ts on ts.locationkey = l.locationkey
-    join timeseries.parameter p on p.parameterkey = ts.parameterkey
-    join timeseries.filesource f on f.filesourcekey = ts.filesourcekey
-    join timeseries.timeseriesvaluesandflags tsf on tsf.timeserieskey = ts.timeserieskey
+    select max(datetime) from wskip_timeseries.location l
+    join wskip_timeseries.timeseries ts on ts.locationkey = l.locationkey
+    join wskip_timeseries.parameter p on p.parameterkey = ts.parameterkey
+    join wskip_timeseries.filesource f on f.filesourcekey = ts.filesourcekey
+    join wskip_timeseries.timeseriesvaluesandflags tsf on tsf.timeserieskey = ts.timeserieskey
     where l.name = '{brolocation}_{t}' and f.filesourcekey = {fid} and p.parameterkey = {pid}
     """
     ld = engine.execute(strsql).fetchall()

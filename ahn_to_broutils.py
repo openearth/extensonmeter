@@ -94,10 +94,10 @@ if not testconnection(engine):
 # that has measured surface elevation
 
 dcttable = {}
-# dcttable["brotimeseries.location"] = "placeholder"
-# dcttable["hdsrtimeseries.location"] = "placeholder"
-# dcttable["hhnktimeseries.location"] = "placeholder"
-# dcttable["timeseries.location"] = "placeholder"
+# dcttable["bro_timeseries.location"] = "placeholder"
+# dcttable["hdsr_timeseries.location"] = "placeholder"
+# dcttable["hhnk_timeseries.location"] = "placeholder"
+# dcttable["wksip_timeseries.location"] = "placeholder"
 # dcttable["waterschappen_timeseries.location"] = "placeholder" #handmetingen
 dcttable["nobv_timeseries.location"] = "placeholder"  # nobv handmatige bewerkingen data
 
@@ -210,7 +210,7 @@ def getmv4point(x, y):
     yst = y - 0.0001
     yend = y + 0.0001
 
-    arf = r"c:\temp\ding.tif"
+    arf = r"C:\projecten\temp\ding.tif"
     data = cut_wcs(xst, yst, xend, yend, layername, geoserver_url, arf, crs=4326)
     araster = rasterio.open(arf)
     row, col = araster.index(x, y)
@@ -442,7 +442,7 @@ for tbl in dcttable.keys():
 # TODO change -> see if it is possible to combine the union into a loop
 # strsql = ""
 # for tbl in dcttable.keys():
-#     nwtbl = tbl + "_metadata"
+#     nwtbl = "metadata_ongecontroleerd.all_gwm"
 #     ansql = f"""SELECT geom,
 #                        l.locationkey,
 #                        altitude_msl as msrd_surface,
@@ -455,19 +455,19 @@ for tbl in dcttable.keys():
 #     strsql += ansql + " UNION "
 
 # remove the last union to get the following sql, this should be adjusted to the new datamodel
-"""drop table all_locations;
-create table all_gwm as
-SELECT geom, ('bro_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
+"""drop table metadata_ongecontroleerd.gwm;
+create table metadata_ongecontroleerd.gwm as
+SELECT geom, ('bro_'||l.locationkey::text) as source, l.name, l.filterdepth, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
 mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
 mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class, mt.x_well, mt.y_well FROM bro_timeseries.location l
 JOIN bro_timeseries.location_metadata mt on mt.well_id = l.locationkey
 UNION 
-SELECT geom, ('hhnk_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
+SELECT geom, ('hhnk_'||l.locationkey::text) as source, l.name, l.filterdepth, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
 mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
 mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class, mt.x_well, mt.y_well FROM hhnk_timeseries.location l
 JOIN hhnk_timeseries.location_metadata mt on mt.well_id = l.locationkey
 UNION 
-SELECT geom, ('nobv_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
+SELECT geom, ('nobv_'||l.locationkey::text) as source, l.name, l.filterdepth, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
 mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
 mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class, mt.x_well, mt.y_well FROM nobv_timeseries.location l
 JOIN nobv_timeseries.location_metadata mt on mt.well_id = l.locationkey
@@ -475,17 +475,17 @@ JOIN nobv_timeseries.timeseries t on t.locationkey = l.locationkey
 JOIN nobv_timeseries.parameter p on p.parameterkey = t.parameterkey
 where p.id = 'GWM'
 UNION 
-SELECT geom, ('hdsr_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
+SELECT geom, ('hdsr_'||l.locationkey::text) as source, l.name, l.filterdepth, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
 mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
 mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class, mt.x_well, mt.y_well FROM hdsr_timeseries.location l
 JOIN hdsr_timeseries.location_metadata mt on mt.well_id = l.locationkey
 UNION 
-SELECT geom, ('wskip_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
+SELECT geom, ('wskip_'||l.locationkey::text) as source, l.name, l.filterdepth, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
 mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
 mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class, mt.x_well, mt.y_well FROM wskip_timeseries.location l
 JOIN wskip_timeseries.location_metadata mt on mt.well_id = l.locationkey
 UNION
-SELECT geom, ('waterschappen_'||l.locationkey::text) as source, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
+SELECT geom, ('waterschappen_'||l.locationkey::text) as source, l.name, l.filterdepth, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
 mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
 mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class, mt.x_well, mt.y_well FROM waterschappen_timeseries.location l
 JOIN waterschappen_timeseries.location_metadata mt on mt.well_id = l.locationkey
@@ -494,16 +494,16 @@ JOIN waterschappen_timeseries.parameter p on p.parameterkey = t.parameterkey
 where p.id = 'GWM'"""
 
 """
-Alter table public.all_gwm
+Alter table metadata_ongecontroleerd.gwm
 add veenperceel boolean; 
 
-update public.all_gwm gw
+update metadata_ongecontroleerd.gwm gw
 set veenperceel = TRUE
 from public.input_parcels_2022 ip
 WHERE ST_Contains(ip.geom, gw.geom)
 
-drop table public.all_swm;
-create table public.all_swm as
+drop table metadata_ongecontroleerd.swm;
+create table metadata_ongecontroleerd.swm as
 SELECT geom, ('nobv_'||l.locationkey::text) as source, l.name FROM nobv.location l
 JOIN nobv_timeseries.location_metadata mt on mt.well_id = l.locationkey
 JOIN nobv_timeseries.timeseries t on t.locationkey = l.locationkey
@@ -518,10 +518,10 @@ where p.id = 'SWM'
 
 #test query!
 
-drop table public.all_locations; 
-create table public.all_locations as
-select * from public.all_gwm
-where veenperceel = True and distance_to_railroad_m > 10 and distance_to_road_m > 10 and distance_to_ditch_m > 5 
+drop table metadata_ongecontroleerd.all_locations; 
+create table metadata_ongecontroleerd.all_locations as
+select * from metadata_ongecontroleerd.gwm
+where veenperceel = True and distance_to_railroad_m > 10 and distance_to_road_m > 10 and distance_to_ditch_m > 5;
 
 WITH updated_values AS (
     SELECT DISTINCT ON (x.source) 
@@ -531,21 +531,21 @@ WITH updated_values AS (
     FROM
         public.peilvak_gw_sw p
     JOIN
-        all_locations x ON ST_DWithin(x.geom, p.geom, 0)
+        metadata_ongecontroleerd.all_locations x ON ST_DWithin(x.geom, p.geom, 0)
     LEFT JOIN
-        all_swm y ON ST_DWithin(y.geom, p.geom, 0)
+        metadata_ongecontroleerd.swm y ON ST_DWithin(y.geom, p.geom, 0)
     ORDER BY 
         x.source
 )
-UPDATE all_locations
+UPDATE metadata_ongecontroleerd.all_locations
 SET ditch_id = CASE 
                 WHEN updated_values.y_source IS NULL THEN NULL -- Keep ditch_id as NULL if y_source is NULL
                 ELSE updated_values.y_source -- Update ditch_id with y_source if it's not NULL
-            END
-SET ditch_name = CASE 
+            END,
+ ditch_name = CASE 
                 WHEN updated_values.ditch_name IS NULL THEN NULL -- Keep ditch_id as NULL if y_source is NULL
                 ELSE updated_values.ditch_name -- Update ditch_id with y_source if it's not NULL
             END
 FROM updated_values
-WHERE all_locations.source = updated_values.x_source;
+WHERE metadata_ongecontroleerd.all_locations.source = updated_values.x_source;
 """

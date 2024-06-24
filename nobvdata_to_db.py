@@ -168,7 +168,7 @@ def find_if_stored(name):
 #TODO assign primary key to the location_metadata table (well_id)
 
 # set reference to config file
-local = False
+local = True
 if local:
     fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_local_somers.txt"
 else:
@@ -183,7 +183,7 @@ pkeygwm =sparameter(fc,'GWM', 'Grondwatermeetpunt',['m-NAP','meter NAP'],'Grondw
 pkeyswm = sparameter(fc,'SWM','Slootwatermeetpunt',['m-NAP','meter NAP'],'Slootwatermeetpunt')
 
 tstkeye = stimestep(session,'nonequidistant','')
-
+#%%
 flagkeygwm=sflag(fc,'Grondwatermeetpuntt-ruwe data', 'Grondwatermeetpunt-ruwe data')
 flagkeyswm=sflag(fc,'Slootwatermeetpunt-ruwe data', 'Slootwatermeetpunt-ruwe data')
 
@@ -194,7 +194,7 @@ cols_metatable=['slootafstand (m)', 'zomer streefpeil (m NAP)',
        'winter streefpeil (m NAP)', 
        'greppelafstand (m)', 'greppeldiepte (m-mv)', 'WIS afstand (m)', 'WIS diepte (m-mv)']
 
-new_loctabel = ['name', 'x', 'y', 'tubetop', 'tubebot', 'altitude_msl']
+new_loctabel = ['name', 'x', 'y', 'tubetop', 'filterdepth', 'altitude_msl']
 new_loc_swm = [ 'name', 'x', 'y']
 timeseries = ['datetime','scalarvalue']                                    
 
@@ -202,6 +202,7 @@ for root,subdirs,files in os.walk(root):
     for count, file in enumerate(files):
         if file.lower().endswith(".txt"):
             name=os.path.basename(file).split("_", 1)[1].rsplit('.',1)[0]
+            print(name)
             data=os.path.basename(file).split("_", 1)[0] #find in name it is GWM or SWM
             nrrows, colnames, xycols, datum = skiprows(os.path.join(root,file))
             
@@ -238,8 +239,12 @@ for root,subdirs,files in os.walk(root):
 
                     dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
                     dfx.columns = timeseries
-                    dfx['datetime'] = pd.to_datetime(dfx['datetime'], infer_datetime_format=True)
+                    try: 
+                        dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y')
+                    except:
+                        dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y %H:%M:%S')
                     dfx=dfx.dropna() 
+                    print(dfx)
 
                     r=latest_entry(skeyz)
 
@@ -305,8 +310,12 @@ for root,subdirs,files in os.walk(root):
 
                     dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
                     dfx.columns = timeseries
-                    dfx['datetime'] = pd.to_datetime(dfx['datetime'], infer_datetime_format=True)
+                    try: 
+                        dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y')
+                    except:
+                        dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y %H:%M:%S')
                     dfx=dfx.dropna() 
+                    print(dfx)
 
                     r=latest_entry(skeyz)
 

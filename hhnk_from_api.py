@@ -77,7 +77,7 @@ def latest_entry(skey):
     """function to find the lastest timestep entry per skey. 
     input = skey
     output = pandas df containing either none or a date"""
-    stmt="""select max(datetime) from hhnktimeseries.timeseriesvaluesandflags
+    stmt="""select max(datetime) from hhnk_timeseries.timeseriesvaluesandflags
         where timeserieskey={s};""".format(s=skey)
     r = engine.execute(stmt).fetchall()[0][0]
     r=pd.to_datetime(r) 
@@ -177,7 +177,7 @@ while response["next"]:
                                                 df=df.rename(columns = {'value':'scalarvalue'}) #change column
                                                 df['timeserieskey'] = skeygws
                                                 df['flags'] = flagkey
-                                                df.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='hhnktimeseries')
+                                                df.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='hhnk_timeseries')
                                             except:
                                                 continue 
 # %%

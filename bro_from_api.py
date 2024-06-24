@@ -90,11 +90,11 @@ def lastgwstage(engine, brolocation, t, pid, fid):
         fid (integer): filesourckey
     """
     strsql = f"""
-    select max(datetime) from gwmonitoring.location l
-    join gwmonitoring.timeseries ts on ts.locationkey = l.locationkey
-    join gwmonitoring.parameter p on p.parameterkey = ts.parameterkey
-    join gwmonitoring.filesource f on f.filesourcekey = ts.filesourcekey
-    join gwmonitoring.timeseriesvaluesandflags tsf on tsf.timeserieskey = ts.timeserieskey
+    select max(datetime) from bro_timeseries.location l
+    join bro_timeseries.timeseries ts on ts.locationkey = l.locationkey
+    join bro_timeseries.parameter p on p.parameterkey = ts.parameterkey
+    join bro_timeseries.filesource f on f.filesourcekey = ts.filesourcekey
+    join bro_timeseries.timeseriesvaluesandflags tsf on tsf.timeserieskey = ts.timeserieskey
     where l.name = '{brolocation}_{t}' and f.filesourcekey = {fid} and p.parameterkey = {pid}
     """
     ld = engine.execute(strsql).fetchall()
@@ -121,7 +121,7 @@ pid = sparameter(fc, "grondwater", "grondwater", ("stand", "m-NAP"), "grondwater
 # - removode = 'nee'
 # With this priority list, data will be retrieved from BRO and loaded into the database.
 
-strSql = """select bro_id,number_of_monitoring_tubes from gwmonitoring.groundwater_monitoring_well 
+strSql = """select bro_id,number_of_monitoring_tubes from bro_timeseries.groundwater_monitoring_well 
             where veenperceel and removed = 'nee'"""
 
 updatedb = True  # in this case there is already data available, data will be updated record by record
@@ -200,7 +200,7 @@ for i in res:
                     "timeseriesvaluesandflags",
                     engine,
                     if_exists="append",
-                    schema="gwmonitoring",
+                    schema="bro_timeseries",
                     index=False,
                     method="multi",
                 )
