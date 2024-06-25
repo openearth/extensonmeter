@@ -407,6 +407,65 @@ for tbl in dcttable.keys():
             # Handle the conflict (e.g., log the error or ignore it)
             print(f"Error: {e}. {lockey}.")
 
+for tbl in dcttable.keys():
+    n=tbl.split('_')[0]
+    ansql = f"""drop table metadata_ongecontroleerd.gwm;
+    create table metadata_ongecontroleerd.gwm as
+        SELECT geom, 
+        ('{n}_'||l.locationkey::text) as source, 
+        l.name, l.filterdepth, 
+        mt.parcel_width_m, 
+        mt.summer_stage_m_nap, 
+        mt.winter_stage_m_nap, 
+        mt.trenches, 
+        mt.trench_depth_m_sfl, 
+        mt.x_centre_parcel, 
+        mt.y_centre_parcel, 
+        mt.surface_level_m_nap, 
+        mt.ditch_id, 
+        mt.distance_to_ditch_m,
+        mt.distance_to_road_m, 
+        mt.distance_to_railroad_m, 
+        mt.distance_to_wis_m, 
+        mt.soil_class, 
+        mt.x_well,
+        mt.y_well FROM {n}_timeseries.location l
+    JOIN {n}_timeseries.location_metadata mt on mt.well_id = l.locationkey
+    """
+    strsql += ansql + " UNION "
+
+strsql=f"""Alter table metadata_ongecontroleerd.gwm
+add veenperceel boolean;"""
+engine.execute(strsql)
+
+strsql= f"""update metadata_ongecontroleerd.gwm gw
+set veenperceel = TRUE
+from public.input_parcels_2022 ip
+WHERE ST_Contains(ip.geom, gw.geom);"""
+engine.execute(strsql)
+
+for tbl in dcttable.keys():
+    n=tbl.split('_')[0]
+    if n == 'nobv' or n == 'waterschappen': #%TODO where does the drop and create table go? 
+        # drop table metadata_ongecontroleerd.swm;
+        # create table metadata_ongecontroleerd.swm as
+        ansql=f"""
+            SELECT geom, ('{n}_'||l.locationkey::text) as source, l.name FROM {n}_timeseries.location l
+            JOIN {n}_timeseries.location_metadata mt on mt.well_id = l.locationkey
+            JOIN {n}_timeseries.timeseries t on t.locationkey = l.locationkey
+            JOIN {n}_timeseries.parameter p on p.parameterkey = t.parameterkey
+            where p.id = 'SWM'"""
+        strsql += ansql + " UNION "
+
+strsql=f"""drop table metadata_ongecontroleerd.all_locations; 
+create table metadata_ongecontroleerd.all_locations as
+select * from metadata_ongecontroleerd.gwm
+where veenperceel = True and distance_to_railroad_m > 10 and distance_to_road_m > 10 and distance_to_ditch_m > 5;"""
+engine.execute(strsql)
+
+strsql=f"""alter table metadata_ongecontroleerd.all_locations
+add column ditch_name varchar(50);"""
+engine.execute(strsql)
 
 # following section calculates the width of a parcel based on the geometry
 # requisite is a single polygon (in query below, a multipolygon is converted into a single
@@ -442,7 +501,7 @@ for tbl in dcttable.keys():
 # TODO change -> see if it is possible to combine the union into a loop
 # strsql = ""
 # for tbl in dcttable.keys():
-#     nwtbl = "metadata_ongecontroleerd.all_gwm"
+#     nwtbl = "metadata_ongecontroleerd.gwm"
 #     ansql = f"""SELECT geom,
 #                        l.locationkey,
 #                        altitude_msl as msrd_surface,
@@ -491,20 +550,12 @@ mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_
 JOIN waterschappen_timeseries.location_metadata mt on mt.well_id = l.locationkey
 JOIN waterschappen_timeseries.timeseries t on t.locationkey = l.locationkey
 JOIN waterschappen_timeseries.parameter p on p.parameterkey = t.parameterkey
-where p.id = 'GWM'"""
+where p.id = 'GWM';"""
 
 """
-Alter table metadata_ongecontroleerd.gwm
-add veenperceel boolean; 
-
-update metadata_ongecontroleerd.gwm gw
-set veenperceel = TRUE
-from public.input_parcels_2022 ip
-WHERE ST_Contains(ip.geom, gw.geom)
-
 drop table metadata_ongecontroleerd.swm;
 create table metadata_ongecontroleerd.swm as
-SELECT geom, ('nobv_'||l.locationkey::text) as source, l.name FROM nobv.location l
+SELECT geom, ('nobv_'||l.locationkey::text) as source, l.name FROM nobv_timeseries.location l
 JOIN nobv_timeseries.location_metadata mt on mt.well_id = l.locationkey
 JOIN nobv_timeseries.timeseries t on t.locationkey = l.locationkey
 JOIN nobv_timeseries.parameter p on p.parameterkey = t.parameterkey
@@ -514,14 +565,9 @@ SELECT geom, ('waterschappen_'||l.locationkey::text) as source, l.name FROM wate
 JOIN waterschappen_timeseries.location_metadata mt on mt.well_id = l.locationkey --change into well_id
 JOIN waterschappen_timeseries.timeseries t on t.locationkey = l.locationkey
 JOIN waterschappen_timeseries.parameter p on p.parameterkey = t.parameterkey
-where p.id = 'SWM'
+where p.id = 'SWM';
 
 #test query!
-
-drop table metadata_ongecontroleerd.all_locations; 
-create table metadata_ongecontroleerd.all_locations as
-select * from metadata_ongecontroleerd.gwm
-where veenperceel = True and distance_to_railroad_m > 10 and distance_to_road_m > 10 and distance_to_ditch_m > 5;
 
 WITH updated_values AS (
     SELECT DISTINCT ON (x.source) 
@@ -548,4 +594,12 @@ SET ditch_id = CASE
             END
 FROM updated_values
 WHERE metadata_ongecontroleerd.all_locations.source = updated_values.x_source;
+
+create view metadata_ongecontroleerd.kalibratie as
+select * from metadata_ongecontroleerd.all_locations
+where ditch_name is not Null;
+
+create view metadata_ongecontroleerd.validatie as
+select * from metadata_ongecontroleerd.all_locations
+where ditch_id is Null;
 """
