@@ -168,7 +168,7 @@ def find_if_stored(name):
 #TODO assign primary key to the location_metadata table (well_id)
 
 # set reference to config file
-local = True
+local = False
 if local:
     fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_local_somers.txt"
 else:

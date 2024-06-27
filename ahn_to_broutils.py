@@ -514,6 +514,10 @@ engine.execute(strsql)
 #     strsql += ansql + " UNION "
 
 # remove the last union to get the following sql, this should be adjusted to the new datamodel
+
+#TODO create dictonaries to loop through the exceptions 
+#can use the insert into, do not have to create new tables but is possible
+#TODO try to add the extra queries which do this
 """drop table metadata_ongecontroleerd.gwm;
 create table metadata_ongecontroleerd.gwm as
 SELECT geom, ('bro_'||l.locationkey::text) as source, l.name, l.filterdepth, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
@@ -589,8 +593,8 @@ SET ditch_id = CASE
                 ELSE updated_values.y_source -- Update ditch_id with y_source if it's not NULL
             END,
  ditch_name = CASE 
-                WHEN updated_values.ditch_name IS NULL THEN NULL -- Keep ditch_id as NULL if y_source is NULL
-                ELSE updated_values.ditch_name -- Update ditch_id with y_source if it's not NULL
+                WHEN updated_values.ditch_name IS NULL THEN NULL -- Keep ditch_name as NULL if y_source is NULL
+                ELSE updated_values.ditch_name -- Update ditch_name with y_source if it's not NULL
             END
 FROM updated_values
 WHERE metadata_ongecontroleerd.all_locations.source = updated_values.x_source;
