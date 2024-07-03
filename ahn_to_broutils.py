@@ -75,7 +75,7 @@ dctcolumns["trenches"] = "double precision[]"
 dctcolumns["trench_depth_m_sfl"] = "double precision"
 dctcolumns["wis_distance_m"] = "double precision"
 dctcolumns["wis_depth_m_sfl"] = "double precision"
-dctcolumns["source"] = "text"
+# dctcolumns["source"] = "text"
 
 # TODO --> nadenken over het gebruik van source ipv well_id in de final master metadata
 
@@ -94,11 +94,11 @@ if not testconnection(engine):
 # that has measured surface elevation
 
 dcttable = {}
-# dcttable["bro_timeseries.location"] = "placeholder"
-# dcttable["hdsr_timeseries.location"] = "placeholder"
-# dcttable["hhnk_timeseries.location"] = "placeholder"
-# dcttable["wksip_timeseries.location"] = "placeholder"
-# dcttable["waterschappen_timeseries.location"] = "placeholder" #handmetingen
+dcttable["bro_timeseries.location"] = "placeholder"
+dcttable["hdsr_timeseries.location"] = "placeholder"
+dcttable["hhnk_timeseries.location"] = "placeholder"
+dcttable["wskip_timeseries.location"] = "placeholder"
+dcttable["waterschappen_timeseries.location"] = "placeholder" #handmetingen
 dcttable["nobv_timeseries.location"] = "placeholder"  # nobv handmatige bewerkingen data
 
 
@@ -407,36 +407,103 @@ for tbl in dcttable.keys():
             # Handle the conflict (e.g., log the error or ignore it)
             print(f"Error: {e}. {lockey}.")
 
+nwtbl = 'metadata_ongecontroleerd.gwm'
+strsql = f"""drop table {nwtbl}; 
+create table if not exists {nwtbl} (source text primary key)"""
+engine.execute(strsql)
+print("table created", nwtbl)
+for columname in dctcolumns.keys():
+    preptable(nwtbl, columname, dctcolumns[columname])
+preptable(nwtbl, 'ditch_name', 'text')
+preptable(nwtbl, 'veenperceel', 'boolean')
+preptable(nwtbl, 'name', 'text')
+preptable(nwtbl, 'filterdepth', 'double precision')
+preptable(nwtbl, 'geom', 'geometry(POINT, 28992)')
+
 for tbl in dcttable.keys():
     n=tbl.split('_')[0]
-    ansql = f"""drop table metadata_ongecontroleerd.gwm;
-    create table metadata_ongecontroleerd.gwm as
-        SELECT geom, 
-        ('{n}_'||l.locationkey::text) as source, 
-        l.name, l.filterdepth, 
-        mt.parcel_width_m, 
-        mt.summer_stage_m_nap, 
-        mt.winter_stage_m_nap, 
-        mt.trenches, 
-        mt.trench_depth_m_sfl, 
-        mt.x_centre_parcel, 
-        mt.y_centre_parcel, 
-        mt.surface_level_m_nap, 
-        mt.ditch_id, 
-        mt.distance_to_ditch_m,
-        mt.distance_to_road_m, 
-        mt.distance_to_railroad_m, 
-        mt.distance_to_wis_m, 
-        mt.soil_class, 
-        mt.x_well,
-        mt.y_well FROM {n}_timeseries.location l
-    JOIN {n}_timeseries.location_metadata mt on mt.well_id = l.locationkey
-    """
-    strsql += ansql + " UNION "
 
-strsql=f"""Alter table metadata_ongecontroleerd.gwm
-add veenperceel boolean;"""
+    if n == 'nobv' or n == 'waterschappen':
+        strsql=f"""insert into {nwtbl} (source, name, filterdepth, 
+        parcel_width_m, summer_stage_m_nap, winter_stage_m_nap, 
+        trenches, trench_depth_m_sfl, x_centre_parcel, y_centre_parcel, 
+        surface_level_m_nap, ditch_id, distance_to_ditch_m,distance_to_road_m, 
+        distance_to_railroad_m, distance_to_wis_m, soil_class, x_well, y_well, geom) 
+            SELECT ('{n}_'||l.locationkey::text) as source, 
+            l.name, l.filterdepth, 
+            mt.parcel_width_m, 
+            mt.summer_stage_m_nap, 
+            mt.winter_stage_m_nap, 
+            mt.trenches, 
+            mt.trench_depth_m_sfl, 
+            mt.x_centre_parcel, 
+            mt.y_centre_parcel, 
+            mt.surface_level_m_nap, 
+            mt.ditch_id, 
+            mt.distance_to_ditch_m,
+            mt.distance_to_road_m, 
+            mt.distance_to_railroad_m, 
+            mt.distance_to_wis_m, 
+            mt.soil_class, 
+            mt.x_well,
+            mt.y_well, geom FROM {n}_timeseries.location l
+            JOIN {n}_timeseries.location_metadata mt on mt.well_id = l.locationkey
+            JOIN {n}_timeseries.timeseries t on t.locationkey = l.locationkey
+            JOIN {n}_timeseries.parameter p on p.parameterkey = t.parameterkey
+            where p.id = 'GWM'
+            ON CONFLICT(source)
+            DO NOTHING;"""
+        engine.execute(strsql)
+        
+    else:
+        strsql=f"""insert into {nwtbl} (source, name, filterdepth, 
+        parcel_width_m, summer_stage_m_nap, winter_stage_m_nap, 
+        trenches, trench_depth_m_sfl, x_centre_parcel, y_centre_parcel, 
+        surface_level_m_nap, ditch_id, distance_to_ditch_m,distance_to_road_m, 
+        distance_to_railroad_m, distance_to_wis_m, soil_class, x_well, y_well, geom) 
+            SELECT ('{n}_'||l.locationkey::text) as source, 
+            l.name, l.filterdepth, 
+            mt.parcel_width_m, 
+            mt.summer_stage_m_nap, 
+            mt.winter_stage_m_nap, 
+            mt.trenches, 
+            mt.trench_depth_m_sfl, 
+            mt.x_centre_parcel, 
+            mt.y_centre_parcel, 
+            mt.surface_level_m_nap, 
+            mt.ditch_id, 
+            mt.distance_to_ditch_m,
+            mt.distance_to_road_m, 
+            mt.distance_to_railroad_m, 
+            mt.distance_to_wis_m, 
+            mt.soil_class, 
+            mt.x_well,
+            mt.y_well, geom FROM {n}_timeseries.location l
+            JOIN {n}_timeseries.location_metadata mt on mt.well_id = l.locationkey
+            ON CONFLICT(source)
+            DO NOTHING;"""
+        engine.execute(strsql)
+
+nwtbl = 'metadata_ongecontroleerd.swm'
+strsql = f"""drop table {nwtbl}; 
+create table if not exists {nwtbl} (source text primary key)"""
 engine.execute(strsql)
+print("table created", nwtbl)
+preptable(nwtbl, 'name', 'text')
+
+for tbl in dcttable.keys():
+    n=tbl.split('_')[0]
+    if n == 'nobv' or n == 'waterschappen': 
+        print(n)
+        strsql=f"""insert into {nwtbl} (source, name)
+            SELECT ('{n}_'||l.locationkey::text) as source, l.name FROM {n}_timeseries.location l
+            JOIN {n}_timeseries.location_metadata mt on mt.well_id = l.locationkey
+            JOIN {n}_timeseries.timeseries t on t.locationkey = l.locationkey
+            JOIN {n}_timeseries.parameter p on p.parameterkey = t.parameterkey where p.id = 'SWM'
+            ON CONFLICT(source)
+            DO NOTHING;"""
+        engine.execute(strsql)
+
 
 strsql= f"""update metadata_ongecontroleerd.gwm gw
 set veenperceel = TRUE
@@ -444,28 +511,48 @@ from public.input_parcels_2022 ip
 WHERE ST_Contains(ip.geom, gw.geom);"""
 engine.execute(strsql)
 
-for tbl in dcttable.keys():
-    n=tbl.split('_')[0]
-    if n == 'nobv' or n == 'waterschappen': #%TODO where does the drop and create table go? 
-        # drop table metadata_ongecontroleerd.swm;
-        # create table metadata_ongecontroleerd.swm as
-        ansql=f"""
-            SELECT geom, ('{n}_'||l.locationkey::text) as source, l.name FROM {n}_timeseries.location l
-            JOIN {n}_timeseries.location_metadata mt on mt.well_id = l.locationkey
-            JOIN {n}_timeseries.timeseries t on t.locationkey = l.locationkey
-            JOIN {n}_timeseries.parameter p on p.parameterkey = t.parameterkey
-            where p.id = 'SWM'"""
-        strsql += ansql + " UNION "
-
 strsql=f"""drop table metadata_ongecontroleerd.all_locations; 
 create table metadata_ongecontroleerd.all_locations as
 select * from metadata_ongecontroleerd.gwm
 where veenperceel = True and distance_to_railroad_m > 10 and distance_to_road_m > 10 and distance_to_ditch_m > 5;"""
 engine.execute(strsql)
 
-strsql=f"""alter table metadata_ongecontroleerd.all_locations
-add column ditch_name varchar(50);"""
+strsql=f"""WITH updated_values AS (
+    SELECT DISTINCT ON (l.source) 
+        l.source AS all_source, 
+        swm.source AS swm_source,
+        swm.name as ditch_name
+    FROM
+        public.peilvak_gw_sw p
+    JOIN
+        metadata_ongecontroleerd.all_locations l ON ST_DWithin(l.geom, p.geom, 0)
+    LEFT JOIN
+        metadata_ongecontroleerd.swm swm ON ST_DWithin(swm.geom, p.geom, 0)
+    ORDER BY 
+        l.source
+)
+UPDATE metadata_ongecontroleerd.all_locations
+SET ditch_id = CASE 
+                WHEN updated_values.swm_source IS NULL THEN NULL -- Keep ditch_id as NULL if swm_source is NULL
+                ELSE updated_values.swm_source -- Update ditch_id with swm_source if it's not NULL
+            END,
+ ditch_name = CASE 
+                WHEN updated_values.ditch_name IS NULL THEN NULL -- Keep ditch_name as NULL if swm_source is NULL
+                ELSE updated_values.ditch_name -- Update ditch_name with swm_source if it's not NULL
+            END
+FROM updated_values
+WHERE metadata_ongecontroleerd.all_locations.source = updated_values.all_source;"""
 engine.execute(strsql)
+
+# create view metadata_ongecontroleerd.kalibratie as
+# select * from metadata_ongecontroleerd.all_locations
+# where ditch_name is not Null;
+
+# create view metadata_ongecontroleerd.validatie as
+# select * from metadata_ongecontroleerd.all_locations
+# where ditch_id is Null;
+
+
 
 # following section calculates the width of a parcel based on the geometry
 # requisite is a single polygon (in query below, a multipolygon is converted into a single
@@ -518,92 +605,4 @@ engine.execute(strsql)
 #TODO create dictonaries to loop through the exceptions 
 #can use the insert into, do not have to create new tables but is possible
 #TODO try to add the extra queries which do this
-"""drop table metadata_ongecontroleerd.gwm;
-create table metadata_ongecontroleerd.gwm as
-SELECT geom, ('bro_'||l.locationkey::text) as source, l.name, l.filterdepth, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
-mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
-mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class, mt.x_well, mt.y_well FROM bro_timeseries.location l
-JOIN bro_timeseries.location_metadata mt on mt.well_id = l.locationkey
-UNION 
-SELECT geom, ('hhnk_'||l.locationkey::text) as source, l.name, l.filterdepth, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
-mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
-mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class, mt.x_well, mt.y_well FROM hhnk_timeseries.location l
-JOIN hhnk_timeseries.location_metadata mt on mt.well_id = l.locationkey
-UNION 
-SELECT geom, ('nobv_'||l.locationkey::text) as source, l.name, l.filterdepth, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
-mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
-mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class, mt.x_well, mt.y_well FROM nobv_timeseries.location l
-JOIN nobv_timeseries.location_metadata mt on mt.well_id = l.locationkey
-JOIN nobv_timeseries.timeseries t on t.locationkey = l.locationkey
-JOIN nobv_timeseries.parameter p on p.parameterkey = t.parameterkey
-where p.id = 'GWM'
-UNION 
-SELECT geom, ('hdsr_'||l.locationkey::text) as source, l.name, l.filterdepth, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
-mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
-mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class, mt.x_well, mt.y_well FROM hdsr_timeseries.location l
-JOIN hdsr_timeseries.location_metadata mt on mt.well_id = l.locationkey
-UNION 
-SELECT geom, ('wskip_'||l.locationkey::text) as source, l.name, l.filterdepth, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
-mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
-mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class, mt.x_well, mt.y_well FROM wskip_timeseries.location l
-JOIN wskip_timeseries.location_metadata mt on mt.well_id = l.locationkey
-UNION
-SELECT geom, ('waterschappen_'||l.locationkey::text) as source, l.name, l.filterdepth, mt.parcel_width_m, mt.summer_stage_m_nap, mt.winter_stage_m_nap, mt.trenches, 
-mt.trench_depth_m_sfl, mt.x_centre_parcel, mt.y_centre_parcel, mt.surface_level_m_nap, mt.ditch_id, mt.distance_to_ditch_m,
-mt.distance_to_road_m, mt.distance_to_railroad_m, mt.distance_to_wis_m, mt.soil_class, mt.x_well, mt.y_well FROM waterschappen_timeseries.location l
-JOIN waterschappen_timeseries.location_metadata mt on mt.well_id = l.locationkey
-JOIN waterschappen_timeseries.timeseries t on t.locationkey = l.locationkey
-JOIN waterschappen_timeseries.parameter p on p.parameterkey = t.parameterkey
-where p.id = 'GWM';"""
 
-"""
-drop table metadata_ongecontroleerd.swm;
-create table metadata_ongecontroleerd.swm as
-SELECT geom, ('nobv_'||l.locationkey::text) as source, l.name FROM nobv_timeseries.location l
-JOIN nobv_timeseries.location_metadata mt on mt.well_id = l.locationkey
-JOIN nobv_timeseries.timeseries t on t.locationkey = l.locationkey
-JOIN nobv_timeseries.parameter p on p.parameterkey = t.parameterkey
-where p.id = 'SWM'
-UNION 
-SELECT geom, ('waterschappen_'||l.locationkey::text) as source, l.name FROM waterschappen_timeseries.location l
-JOIN waterschappen_timeseries.location_metadata mt on mt.well_id = l.locationkey --change into well_id
-JOIN waterschappen_timeseries.timeseries t on t.locationkey = l.locationkey
-JOIN waterschappen_timeseries.parameter p on p.parameterkey = t.parameterkey
-where p.id = 'SWM';
-
-#test query!
-
-WITH updated_values AS (
-    SELECT DISTINCT ON (x.source) 
-        x.source AS x_source, 
-        y.source AS y_source,
-        y.name as ditch_name
-    FROM
-        public.peilvak_gw_sw p
-    JOIN
-        metadata_ongecontroleerd.all_locations x ON ST_DWithin(x.geom, p.geom, 0)
-    LEFT JOIN
-        metadata_ongecontroleerd.swm y ON ST_DWithin(y.geom, p.geom, 0)
-    ORDER BY 
-        x.source
-)
-UPDATE metadata_ongecontroleerd.all_locations
-SET ditch_id = CASE 
-                WHEN updated_values.y_source IS NULL THEN NULL -- Keep ditch_id as NULL if y_source is NULL
-                ELSE updated_values.y_source -- Update ditch_id with y_source if it's not NULL
-            END,
- ditch_name = CASE 
-                WHEN updated_values.ditch_name IS NULL THEN NULL -- Keep ditch_name as NULL if y_source is NULL
-                ELSE updated_values.ditch_name -- Update ditch_name with y_source if it's not NULL
-            END
-FROM updated_values
-WHERE metadata_ongecontroleerd.all_locations.source = updated_values.x_source;
-
-create view metadata_ongecontroleerd.kalibratie as
-select * from metadata_ongecontroleerd.all_locations
-where ditch_name is not Null;
-
-create view metadata_ongecontroleerd.validatie as
-select * from metadata_ongecontroleerd.all_locations
-where ditch_id is Null;
-"""

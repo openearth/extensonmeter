@@ -165,7 +165,7 @@ def find_if_stored(name):
 #TODO change the trenches into a list
 
 # set reference to config file
-local = True
+local = False
 if local:
     fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_local_somers.txt"
 else:
@@ -176,11 +176,12 @@ session,engine = establishconnection(fc)
 path_1 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Rivierenland'
 path_2 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Delfland\SOMERS_DATA'
 path_3 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\HDSR\geschikte_data'
+path_4 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\AGV'
 ws = ['Rivierenland', 'Delfland', 'HDSR']
 
 # Create a list of paths
 # paths = [path_1, path_2]
-paths = [path_3]
+paths = [path_4]
 
 #assigning parameters, either grondwaterstand or slootwaterpeil
 #zoetwaterstijghoogtes
@@ -198,7 +199,7 @@ cols_loctable=['naam_meetpunt',
                'x-coor', 
                'y-coor',
                'top filter (m-mv)',
-               'onderkant filter (m-mv)'
+               'onderkant filter (m-mv)',
                'maaiveld (m NAP)']
 cols_metatable=['slootafstand (m)', 
                 'zomer streefpeil (m NAP)',
@@ -342,7 +343,7 @@ for root in paths:
                             skeyz = sserieskey(fc, pkeygwm, locationkey, fskey[0],timestep='nonequidistant')
                             flag = flagkeygwm
 
-                            dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
+                            dfx = pd.read_csv(os.path.join(root,file), sep='\t', skiprows=nrrows, header = None, names = colnames)
                             dfx.columns = timeseries
                             dfx['datetime'] = dfx['datetime'].str.replace("24:00:00", "00:00:00")
                             dfx['datetime'] = pd.to_datetime(dfx['datetime'], infer_datetime_format=True)
