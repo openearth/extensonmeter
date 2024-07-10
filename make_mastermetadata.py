@@ -76,13 +76,13 @@ dctcolumns["wis_distance_m"] = "double precision"
 dctcolumns["wis_depth_m_sfl"] = "double precision"
 dctcolumns["tube_top"] = "double precision"
 dctcolumns["tube_bot"] = "double precision"
-dctcolumns["geometry"] = "text"  # WKT represenation of the geom of the location
+dctcolumns["geometry"] = "geometry(POINT, 28992)"  # WKT represenation of the geom of the location
 dctcolumns["parcel_geom"] = "text"  # WKT represenation of the geom of the parcel
 dctcolumns["selection"] = "text"
 
 # globals
 # cf = r"C:\develop\extensometer\connection_online.txt"
-cf = r"C:\develop\extensometer\connection_online.txt"
+cf = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_online_qsomers.txt"
 session, engine = establishconnection(cf)
 
 if not testconnection(engine):
@@ -156,7 +156,7 @@ for tbl in dcttable.keys():
             mt.wis_depth_m_sfl,
             l.tubetop, 
             l.tubebot,
-            st_astext(l.geom),
+            l.geom,
             st_astext(st_force2d(i.geom)),
             'yes' as selection
             FROM {n}_timeseries.location l
@@ -164,7 +164,7 @@ for tbl in dcttable.keys():
             JOIN {n}_timeseries.timeseries t on t.locationkey = l.locationkey
             JOIN {n}_timeseries.parameter p on p.parameterkey = t.parameterkey
             JOIN public.input_parcels_2022 i on st_within(l.geom,i.geom)
-            where p.id = 'GWM' and veenperceel = True and mt.distance_to_railroad_m > 10 and mt.distance_to_road_m > 10 and mt.distance_to_ditch_m > 5
+            where p.id = 'GWM' and mt.distance_to_railroad_m > 10 and mt.distance_to_road_m > 10 and mt.distance_to_ditch_m > 5
             ON CONFLICT(source)
             DO NOTHING;"""
         engine.execute(strsql)
@@ -194,13 +194,13 @@ for tbl in dcttable.keys():
         mt.wis_depth_m_sfl,
         l.tubetop, 
         l.tubebot,
-        st_astext(l.geom),
+        l.geom,
         st_astext(st_force2d(i.geom)),
         'yes'
         FROM {n}_timeseries.location l
         JOIN {n}_timeseries.location_metadata mt on mt.well_id = l.locationkey
         JOIN public.input_parcels_2022 i on st_within(l.geom,i.geom)
-        where veenperceel = True and mt.distance_to_railroad_m > 10 and mt.distance_to_road_m > 10 and mt.distance_to_ditch_m > 5
+        where mt.distance_to_railroad_m > 10 and mt.distance_to_road_m > 10 and mt.distance_to_ditch_m > 5
         ON CONFLICT(source)
         DO NOTHING;"""
         engine.execute(strsql)
@@ -228,13 +228,13 @@ for tbl in dcttable.keys():
 
 strsql = f"""WITH updated_values AS (
     SELECT DISTINCT ON (l.source) 
-        l.source AS all_source, 
+        l.well_id AS all_source, 
         swm.source AS swm_source,
         swm.name as ditch_name
     FROM
         public.peilvak_gw_sw p
     JOIN
-        metadata_ongecontroleerd.gwm l ON ST_DWithin(l.geom, p.geom, 0)
+        metadata_ongecontroleerd.gwm l ON ST_DWithin(l.geometry, p.geom, 0)
     LEFT JOIN
         metadata_ongecontroleerd.swm swm ON ST_DWithin(swm.geom, p.geom, 0)
     ORDER BY 
@@ -242,26 +242,26 @@ strsql = f"""WITH updated_values AS (
 )
 UPDATE metadata_ongecontroleerd.gwm
 SET ditch_id = CASE 
-                WHEN updated_values.swm_source IS NULL THEN NULL -- Keep ditch_id as NULL if swm_source is NULL
-                ELSE updated_values.swm_source -- Update ditch_id with swm_source if it's not NULL
+                WHEN updated_values.swm_source IS NULL THEN NULL 
+                ELSE updated_values.swm_source 
             END,
  ditch_name = CASE 
-                WHEN updated_values.ditch_name IS NULL THEN NULL -- Keep ditch_name as NULL if swm_source is NULL
-                ELSE updated_values.ditch_name -- Update ditch_name with swm_source if it's not NULL
+                WHEN updated_values.ditch_name IS NULL THEN NULL 
+                ELSE updated_values.ditch_name 
             END
 FROM updated_values
-WHERE metadata_ongecontroleerd.all_locations.source = updated_values.all_source;"""
+WHERE metadata_ongecontroleerd.gwm.well_id = updated_values.all_source;"""
 engine.execute(strsql)
 
 strsql = f"""drop table metadata_ongecontroleerd.kalibratie; 
 create table metadata_ongecontroleerd.kalibratie as
-select * from metadata_ongecontroleerd.all_locations
-where ditch_name is not Null;"""
+select * from metadata_ongecontroleerd.gwm
+where ditch_id is not Null;"""
 engine.execute(strsql)
 
 strsql = f"""drop table metadata_ongecontroleerd.validatie;
 create table metadata_ongecontroleerd.validatie as
-select * from metadata_ongecontroleerd.all_locations
+select * from metadata_ongecontroleerd.gwm
 where ditch_id is Null;"""
 engine.execute(strsql)
 

@@ -177,11 +177,12 @@ path_1 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvra
 path_2 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Delfland\SOMERS_DATA'
 path_3 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\HDSR\geschikte_data'
 path_4 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\AGV'
+path_5 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\HunzeenAas\bewerkt'
 ws = ['Rivierenland', 'Delfland', 'HDSR']
 
 # Create a list of paths
 # paths = [path_1, path_2]
-paths = [path_4]
+paths = [path_5]
 
 #assigning parameters, either grondwaterstand or slootwaterpeil
 #zoetwaterstijghoogtes
@@ -237,6 +238,7 @@ for root in paths:
                     fskey = loadfilesource(os.path.join(root,file),fc,f"{name}_{data}")
                     
                     dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
+                    print(dfx)
                     if data == 'SWM':
                         df= extract_info_from_text_file(os.path.join(root,file))
                         df.columns = new_loc_swm
@@ -343,7 +345,7 @@ for root in paths:
                             skeyz = sserieskey(fc, pkeygwm, locationkey, fskey[0],timestep='nonequidistant')
                             flag = flagkeygwm
 
-                            dfx = pd.read_csv(os.path.join(root,file), sep='\t', skiprows=nrrows, header = None, names = colnames)
+                            dfx = pd.read_csv(os.path.join(root,file), sep=';', skiprows=nrrows, header = None, names = colnames)
                             dfx.columns = timeseries
                             dfx['datetime'] = dfx['datetime'].str.replace("24:00:00", "00:00:00")
                             dfx['datetime'] = pd.to_datetime(dfx['datetime'], infer_datetime_format=True)
