@@ -81,6 +81,7 @@ dctcolumns["parcel_geom"] = "text"  # WKT represenation of the geom of the parce
 dctcolumns["selection"] = "text"
 
 # globals
+# cf = r"C:\develop\extensometer\connection_online.txt"
 cf = r"C:\develop\extensometer\connection_online.txt"
 session, engine = establishconnection(cf)
 
@@ -158,12 +159,12 @@ for tbl in dcttable.keys():
             st_astext(l.geom),
             st_astext(st_force2d(i.geom)),
             'yes' as selection
-            FROM bro_timeseries.location l
-            JOIN bro_timeseries.location_metadata mt on mt.well_id = l.locationkey
-            JOIN bro_timeseries.timeseries t on t.locationkey = l.locationkey
-            JOIN bro_timeseries.parameter p on p.parameterkey = t.parameterkey
+            FROM {n}_timeseries.location l
+            JOIN {n}_timeseries.location_metadata mt on mt.well_id = l.locationkey
+            JOIN {n}_timeseries.timeseries t on t.locationkey = l.locationkey
+            JOIN {n}_timeseries.parameter p on p.parameterkey = t.parameterkey
             JOIN public.input_parcels_2022 i on st_within(l.geom,i.geom)
-            where p.id = 'GWM'
+            where p.id = 'GWM' and veenperceel = True and mt.distance_to_railroad_m > 10 and mt.distance_to_road_m > 10 and mt.distance_to_ditch_m > 5
             ON CONFLICT(source)
             DO NOTHING;"""
         engine.execute(strsql)
@@ -196,9 +197,10 @@ for tbl in dcttable.keys():
         st_astext(l.geom),
         st_astext(st_force2d(i.geom)),
         'yes'
-        FROM hhnk_timeseries.location l
-        JOIN hhnk_timeseries.location_metadata mt on mt.well_id = l.locationkey
+        FROM {n}_timeseries.location l
+        JOIN {n}_timeseries.location_metadata mt on mt.well_id = l.locationkey
         JOIN public.input_parcels_2022 i on st_within(l.geom,i.geom)
+        where veenperceel = True and mt.distance_to_railroad_m > 10 and mt.distance_to_road_m > 10 and mt.distance_to_ditch_m > 5
         ON CONFLICT(source)
         DO NOTHING;"""
         engine.execute(strsql)
@@ -224,19 +226,6 @@ for tbl in dcttable.keys():
             DO NOTHING;"""
         engine.execute(strsql)
 
-
-strsql = f"""update metadata_ongecontroleerd.gwm gw
-set veenperceel = TRUE
-from public.input_parcels_2022 ip
-WHERE ST_Contains(ip.geom, gw.geom);"""
-engine.execute(strsql)
-
-strsql = f"""drop table metadata_ongecontroleerd.all_locations; 
-create table metadata_ongecontroleerd.all_locations as
-select * from metadata_ongecontroleerd.gwm
-where veenperceel = True and distance_to_railroad_m > 10 and distance_to_road_m > 10 and distance_to_ditch_m > 5;"""
-engine.execute(strsql)
-
 strsql = f"""WITH updated_values AS (
     SELECT DISTINCT ON (l.source) 
         l.source AS all_source, 
@@ -245,13 +234,13 @@ strsql = f"""WITH updated_values AS (
     FROM
         public.peilvak_gw_sw p
     JOIN
-        metadata_ongecontroleerd.all_locations l ON ST_DWithin(l.geom, p.geom, 0)
+        metadata_ongecontroleerd.gwm l ON ST_DWithin(l.geom, p.geom, 0)
     LEFT JOIN
         metadata_ongecontroleerd.swm swm ON ST_DWithin(swm.geom, p.geom, 0)
     ORDER BY 
         l.source
 )
-UPDATE metadata_ongecontroleerd.all_locations
+UPDATE metadata_ongecontroleerd.gwm
 SET ditch_id = CASE 
                 WHEN updated_values.swm_source IS NULL THEN NULL -- Keep ditch_id as NULL if swm_source is NULL
                 ELSE updated_values.swm_source -- Update ditch_id with swm_source if it's not NULL
