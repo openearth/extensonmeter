@@ -52,8 +52,11 @@ dcttable["bro_timeseries.location"] = "placeholder"
 dcttable["hdsr_timeseries.location"] = "placeholder"
 dcttable["hhnk_timeseries.location"] = "placeholder"
 dcttable["wskip_timeseries.location"] = "placeholder"
-dcttable["waterschappen_timeseries.location"] = "placeholder"  # handmetingen
+# dcttable["waterschappen_timeseries.location"] = "placeholder"  # handmetingen
 dcttable["nobv_timeseries.location"] = "placeholder"  # nobv handmatige bewerkingen data
+
+
+# todo ==> datetime as textformat
 
 for tbl in dcttable.keys():
     n = tbl.split("_")[0]
@@ -68,10 +71,9 @@ for tbl in dcttable.keys():
     group by well_id
     """
     res = pd.read_sql(strsql, con)
-    for well_id in res["well_id"]:
-        min_date = res[well_id][1]
-        max_date = res[well_id][2]
-        print(well_id, min_date, max_date)
+    for well_id, row in res.iterrows():
+        print(well_id, row["mindate"], row["maxdate"])
+
     strsql = f"""insert into {nwtbl} (well_id, name, aan_id, transect, parcel_type, ditch_id, ditch_name, soil_class, surface_level_m_nap, start_date, end_date, parcel_width_m, summer_stage_m_nap, winter_stage_m_nap, x_well, y_well, distance_to_ditch_m, trenches, trench_depth_m_sfl, wis_distance_m, wis_depth_m_sfl, tube_top, tube_bot, geometry, parcel_geom, selection)
 
     ON CONFLICT(source)
