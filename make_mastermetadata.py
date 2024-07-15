@@ -76,7 +76,9 @@ dctcolumns["wis_distance_m"] = "double precision"
 dctcolumns["wis_depth_m_sfl"] = "double precision"
 dctcolumns["tube_top"] = "double precision"
 dctcolumns["tube_bot"] = "double precision"
-dctcolumns["geometry"] = "geometry(POINT, 28992)"  # WKT represenation of the geom of the location
+dctcolumns["geometry"] = (
+    "geometry(POINT, 28992)"  # WKT represenation of the geom of the location
+)
 dctcolumns["parcel_geom"] = "text"  # WKT represenation of the geom of the parcel
 dctcolumns["selection"] = "text"
 
@@ -144,7 +146,7 @@ for tbl in dcttable.keys():
             mt.surface_level_m_nap, 
             mt.start_date,
             mt.end_date,
-            mt.parcel_width_m, 
+            i.sloot_afs, 
             mt.summer_stage_m_nap,
             mt.winter_stage_m_nap, 
             mt.x_well,
@@ -182,7 +184,7 @@ for tbl in dcttable.keys():
         mt.surface_level_m_nap, 
         mt.start_date,
         mt.end_date,
-        mt.parcel_width_m, 
+        i.sloot_afs, 
         mt.summer_stage_m_nap,
         mt.winter_stage_m_nap, 
         mt.x_well,
