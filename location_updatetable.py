@@ -26,10 +26,7 @@
 # your own tools.
 
 # set of functions that gets data for every location available regarding a list of parameters:
-# - derivation of AHN4 surface levels (DTM)
-# - assignment of SOILTYPE from locally loaded SOILMAP
-# - assignment of parcelwidth and distance of ditches?
-# - assignment distance to roads or waterbodies
+# update of timewindow of every location.
 
 # base packages
 import os
@@ -52,15 +49,14 @@ dcttable["bro_timeseries.location"] = "placeholder"
 dcttable["hdsr_timeseries.location"] = "placeholder"
 dcttable["hhnk_timeseries.location"] = "placeholder"
 dcttable["wskip_timeseries.location"] = "placeholder"
-# dcttable["waterschappen_timeseries.location"] = "placeholder"  # handmetingen
+dcttable["waterschappen_timeseries.location"] = "placeholder"  # handmetingen
 dcttable["nobv_timeseries.location"] = "placeholder"  # nobv handmatige bewerkingen data
 
-
 # todo ==> datetime as textformat
-
+nwtbl = "metadata_ongecontroleerd.gwm"
 for tbl in dcttable.keys():
     n = tbl.split("_")[0]
-    print("attempt to exectute queries for", n)
+    print("retrieve time window information for", n)
 
     strsql = f"""select well_id, min(datetime) as mindate,max(datetime) as maxdate from 
     {n}_timeseries.location l
@@ -72,10 +68,5 @@ for tbl in dcttable.keys():
     """
     res = pd.read_sql(strsql, con)
     for well_id, row in res.iterrows():
-        print(well_id, row["mindate"], row["maxdate"])
-
-    strsql = f"""insert into {nwtbl} (well_id, name, aan_id, transect, parcel_type, ditch_id, ditch_name, soil_class, surface_level_m_nap, start_date, end_date, parcel_width_m, summer_stage_m_nap, winter_stage_m_nap, x_well, y_well, distance_to_ditch_m, trenches, trench_depth_m_sfl, wis_distance_m, wis_depth_m_sfl, tube_top, tube_bot, geometry, parcel_geom, selection)
-
-    ON CONFLICT(source)
-    DO NOTHING;"""
-    engine.execute(strsql)
+        strsql = f"""update {nwtbl} set start_date = '{row['mindate']}', end_date = '{row['maxdate']}' where well_id = '{n}_{well_id}'"""
+        engine.execute(strsql)
