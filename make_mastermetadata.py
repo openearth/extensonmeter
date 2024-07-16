@@ -77,10 +77,11 @@ dctcolumns["wis_depth_m_sfl"] = "double precision"
 dctcolumns["tube_top"] = "double precision"
 dctcolumns["tube_bot"] = "double precision"
 dctcolumns["geometry"] = (
-    "geometry(POINT, 28992)"  # WKT represenation of the geom of the location
+    "geometry(POINT, 28992)"  # Point representation because it is used in further analysis
 )
 dctcolumns["parcel_geom"] = "text"  # WKT represenation of the geom of the parcel
 dctcolumns["selection"] = "text"
+dctcolumns["description"] = "text"
 
 # globals
 # cf = r"C:\develop\extensometer\connection_online.txt"
@@ -134,7 +135,7 @@ for tbl in dcttable.keys():
     n = tbl.split("_")[0]
     print("attempt to exectute queries for", n)
     if n == "nobv" or n == "waterschappen":
-        strsql = f"""insert into {nwtbl} (well_id, name, aan_id, transect, parcel_type, ditch_id, ditch_name, soil_class, surface_level_m_nap, start_date, end_date, parcel_width_m, summer_stage_m_nap, winter_stage_m_nap, x_well, y_well, distance_to_ditch_m, trenches, trench_depth_m_sfl, wis_distance_m, wis_depth_m_sfl, tube_top, tube_bot, geometry, parcel_geom, selection)
+        strsql = f"""insert into {nwtbl} (well_id, name, aan_id, transect, parcel_type, ditch_id, ditch_name, soil_class, surface_level_m_nap, start_date, end_date, parcel_width_m, summer_stage_m_nap, winter_stage_m_nap, x_well, y_well, distance_to_ditch_m, trenches, trench_depth_m_sfl, wis_distance_m, wis_depth_m_sfl, tube_top, tube_bot, geometry, parcel_geom, selection, description)
         SELECT ('{n}_'||l.locationkey::text) as well_id, 
             l.name, 
             i.aan_id,
@@ -146,7 +147,7 @@ for tbl in dcttable.keys():
             mt.surface_level_m_nap, 
             mt.start_date,
             mt.end_date,
-            i.sloot_afs, 
+            mt.parcel_width_m, 
             mt.summer_stage_m_nap,
             mt.winter_stage_m_nap, 
             mt.x_well,
@@ -160,7 +161,8 @@ for tbl in dcttable.keys():
             l.tubebot,
             l.geom,
             st_astext(st_force2d(i.geom)),
-            'yes' as selection
+            'yes' as selection,
+            l.description
             FROM {n}_timeseries.location l
             JOIN {n}_timeseries.location_metadata mt on mt.well_id = l.locationkey
             JOIN {n}_timeseries.timeseries t on t.locationkey = l.locationkey
@@ -172,7 +174,7 @@ for tbl in dcttable.keys():
         engine.execute(strsql)
 
     else:
-        strsql = f"""insert into {nwtbl} (well_id, name, aan_id, transect, parcel_type, ditch_id, ditch_name, soil_class, surface_level_m_nap, start_date, end_date, parcel_width_m, summer_stage_m_nap, winter_stage_m_nap, x_well, y_well, distance_to_ditch_m, trenches, trench_depth_m_sfl, wis_distance_m, wis_depth_m_sfl, tube_top, tube_bot, geometry, parcel_geom, selection)
+        strsql = f"""insert into {nwtbl} (well_id, name, aan_id, transect, parcel_type, ditch_id, ditch_name, soil_class, surface_level_m_nap, start_date, end_date, parcel_width_m, summer_stage_m_nap, winter_stage_m_nap, x_well, y_well, distance_to_ditch_m, trenches, trench_depth_m_sfl, wis_distance_m, wis_depth_m_sfl, tube_top, tube_bot, geometry, parcel_geom, selection, description)
         SELECT ('{n}_'||l.locationkey::text) as well_id,
         l.name, 
         i.aan_id,
@@ -184,7 +186,7 @@ for tbl in dcttable.keys():
         mt.surface_level_m_nap, 
         mt.start_date,
         mt.end_date,
-        i.sloot_afs, 
+        mt.parcel_width_m, 
         mt.summer_stage_m_nap,
         mt.winter_stage_m_nap, 
         mt.x_well,
@@ -198,7 +200,8 @@ for tbl in dcttable.keys():
         l.tubebot,
         l.geom,
         st_astext(st_force2d(i.geom)),
-        'yes'
+        'yes',
+        l.description
         FROM {n}_timeseries.location l
         JOIN {n}_timeseries.location_metadata mt on mt.well_id = l.locationkey
         JOIN public.input_parcels_2022 i on st_within(l.geom,i.geom)
@@ -206,6 +209,18 @@ for tbl in dcttable.keys():
         ON CONFLICT(source)
         DO NOTHING;"""
         engine.execute(strsql)
+
+    strsql = f"""UPDATE {nwtbl} t
+        SET parcel_width_m = i.sloot_afst
+        FROM {n}_timeseries.location l
+        JOIN {n}_timeseries.location_metadata mt ON mt.well_id = l.locationkey
+        JOIN public.input_parcels_2022 i ON ST_Within(l.geom, i.geom)
+        WHERE mt.distance_to_railroad_m > 10
+        AND mt.distance_to_road_m > 10
+        AND mt.distance_to_ditch_m > 5
+        AND t.well_id = ('{n}_' || l.locationkey::text)
+        AND t.parcel_width_m IS NULL;; """
+    engine.execute(strsql)
 
 nwtbl = "metadata_ongecontroleerd.swm"
 strsql = f"""drop table {nwtbl}; 
@@ -227,6 +242,8 @@ for tbl in dcttable.keys():
             ON CONFLICT(source)
             DO NOTHING;"""
         engine.execute(strsql)
+
+#%%
 
 strsql = f"""WITH updated_values AS (
     SELECT DISTINCT ON (l.source) 
@@ -255,6 +272,7 @@ FROM updated_values
 WHERE metadata_ongecontroleerd.gwm.well_id = updated_values.all_source;"""
 engine.execute(strsql)
 
+ #%%
 strsql = f"""drop table metadata_ongecontroleerd.kalibratie; 
 create table metadata_ongecontroleerd.kalibratie as
 select * from metadata_ongecontroleerd.gwm
