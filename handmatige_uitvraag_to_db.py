@@ -160,10 +160,6 @@ def find_if_stored(name):
     except:
         return False
 
-#TODO assign primary key to the location_metadata table (well_id)
-#TODO change the locationkey into well_id
-#TODO change the trenches into a list
-
 # set reference to config file
 local = False
 if local:
@@ -178,11 +174,12 @@ path_2 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvra
 path_3 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\HDSR\geschikte_data'
 path_4 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\AGV'
 path_5 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\HunzeenAas\bewerkt'
+path_6 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Wetterskip'
 ws = ['Rivierenland', 'Delfland', 'HDSR']
 
 # Create a list of paths
 # paths = [path_1, path_2]
-paths = [path_5]
+paths = [path_6]
 
 #assigning parameters, either grondwaterstand or slootwaterpeil
 #zoetwaterstijghoogtes
@@ -211,7 +208,7 @@ cols_metatable=['slootafstand (m)',
                 'WIS diepte (m-mv)'
                 ]
 
-new_loctabel = ['name', 'x', 'y', 'tubetop', 'filterdepth', 'altitude_msl']
+new_loctabel = ['name', 'x', 'y', 'tubetop', 'tubebot', 'altitude_msl']
 new_loc_swm = [ 'name', 'x', 'y']
 timeseries = ['datetime','scalarvalue']   
 
@@ -221,13 +218,12 @@ for root in paths:
         for count, file in enumerate(files):
             if file.lower().endswith(".txt"):
                 name=os.path.basename(file).split("_", 1)[1].rsplit('.',1)[0]
+                name = name.replace('[', '').replace(']', '')
                 data=os.path.basename(file).split("_", 1)[0] #find in name it is GWM or SWM
                 nrrows, colnames, xycols, datum = skiprows(os.path.join(root,file))
+                y = find_if_stored(name)  
+                print(y)  
 
-                #assign a new locationkey
-                #first find if location is already stored in the database, if not stored, the following code will be run
-                y = find_if_stored(name)
-                # print('Not Updating:', name)
                 if y == False: 
                     print('Updating:', name)
                     x= find_locationkey()
@@ -383,4 +379,49 @@ for root in paths:
 
 # ALTER TABLE waterschappen_timeseries.location_metadata ADD PRIMARY KEY (well_id)
 # ALTER TABLE waterschappen_timeseries.location_metadata rename column locationkey to well_id
+# %% FIXING THE TUBEBOTS THAT WENT WRONG. STORE IN CODE JUST IN CASE
+                # #assign a new locationkey
+                # #first find if location is already stored in the database, if not stored, the following code will be run
+                # #if data == 'GWM':
+                #     y = find_if_stored(name)
+
+                #     nwtbl = 'waterschappen_timeseries.location'
+                #     df= extract_info_from_text_file(os.path.join(root,file))
+                #     locationtable = df[cols_loctable]
+                #     locationtable.columns = new_loctabel
+
+                #     string_columns = locationtable.select_dtypes(include=['object']).columns
+                #     for col in string_columns:
+                #         if col != 'name':
+                #             locationtable[col] = locationtable[col].apply(lambda x: x.replace(',', '.'))
+                #             locationtable[col] = locationtable[col].astype(float)
+
+
+                #     strsql = f"""insert into {nwtbl} (locationkey, tubebot) 
+                #             VALUES ({y[0]},'{locationtable.tubebot.values[0]}')
+                #             ON CONFLICT(locationkey)
+                #             DO UPDATE SET
+                #             tubebot = '{locationtable.tubebot.values[0]}'"""
+                #     engine.execute(strsql)
+
+
+# #%%
+# df = pd.read_excel(r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Wetterskip\240703 Export_meetpunten_VW_monitoring.xlsx', skiprows=1)
+# cols = ['# naam_meetpunt','maatregel' ]
+# df = df[cols]
+# df = df.drop(120)
+
+# nwtbl = 'waterschappen_timeseries.location'
+
+# for index, row in df.iterrows():
+#     lockey = find_if_stored(row[0])
+
+#     if lockey[1] == True: 
+#         print(lockey)
+#         strsql = f"""insert into {nwtbl} (locationkey, description) 
+#                 VALUES ({lockey[0]},'{row[1]}')
+#                 ON CONFLICT(locationkey)
+#                 DO UPDATE SET
+#                 description = '{row[1]}'"""
+#         engine.execute(strsql)
 # %%
