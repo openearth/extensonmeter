@@ -161,7 +161,7 @@ def find_if_stored(name):
         return False
 
 # set reference to config file
-local = False
+local = True
 if local:
     fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_local_somers.txt"
 else:
@@ -212,6 +212,7 @@ new_loctabel = ['name', 'x', 'y', 'tubetop', 'tubebot', 'altitude_msl']
 new_loc_swm = [ 'name', 'x', 'y']
 timeseries = ['datetime','scalarvalue']   
 
+ #%%
 # Loop over each path
 for root in paths:
     for root,subdirs,files in os.walk(root):   
@@ -222,19 +223,15 @@ for root in paths:
                 data=os.path.basename(file).split("_", 1)[0] #find in name it is GWM or SWM
                 nrrows, colnames, xycols, datum = skiprows(os.path.join(root,file))
                 y = find_if_stored(name)  
-                print(y)  
+                # print(y)  
 
-                if y == False: 
+                if y[1] == True: 
                     print('Updating:', name)
-                    x= find_locationkey()
-                    if x is None:
-                        locationkey=0
-                    else:
-                        locationkey = x+1
+
                     fskey = loadfilesource(os.path.join(root,file),fc,f"{name}_{data}")
                     
                     dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
-                    print(dfx)
+                    # print(dfx)
                     if data == 'SWM':
                         df= extract_info_from_text_file(os.path.join(root,file))
                         df.columns = new_loc_swm
@@ -249,9 +246,9 @@ for root in paths:
                         df['epsgcode'] = 28992
                         df['filesourcekey']=fskey[0][0] 
 
-                        df.to_sql('location',engine,schema='waterschappen_timeseries',index=None,if_exists='append')
-                        stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='waterschappen_timeseries',t='location')
-                        engine.execute(stmt)
+                        # df.to_sql('location',engine,schema='waterschappen_timeseries',index=None,if_exists='append')
+                        # stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='waterschappen_timeseries',t='location')
+                        # engine.execute(stmt)
 
                         skeyz = sserieskey(fc, pkeyswm, locationkey, fskey[0],timestep='nonequidistant')
                         flag = flagkeyswm
@@ -266,6 +263,7 @@ for root in paths:
                         duplicate_rows = dfx[dfx.duplicated()] #find duplicated entries
                         # print(duplicate_rows)
                         dfx=dfx.drop_duplicates()
+                        print(r, skeyz)
                         try:
                             if r!=dfx['datetime'].iloc[-1]:
                                 dfx['timeserieskey'] = skeyz 
@@ -293,17 +291,12 @@ for root in paths:
                         locationtable['filesourcekey']=fskey[0][0] 
 
                         y = find_if_stored(name) #check if stored in DB, if not stored, the following code will be run
-                        if y == False: 
-                            print('Updating:', name)
-                            x= find_locationkey()
-                            if x is None:
-                                locationkey=0
-                            else:
-                                locationkey = x+1 
+                        if y[1] == True: 
 
-                            locationtable.to_sql('location',engine,schema='waterschappen_timeseries',index=None,if_exists='append')
-                            stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='waterschappen_timeseries',t='location')
-                            engine.execute(stmt)
+
+                            # locationtable.to_sql('location',engine,schema='waterschappen_timeseries',index=None,if_exists='append')
+                            # stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='waterschappen_timeseries',t='location')
+                            # engine.execute(stmt)
                             
                             metadata = df[cols_metatable]
                             metadata = metadata.rename(columns={'slootafstand (m)': 'parcel_width_m', 
@@ -336,7 +329,7 @@ for root in paths:
                             dtype = {
                                 'trenches': ARRAY(DOUBLE_PRECISION) #making sure trenches is exported as a double precision array
                             }
-                            metadata.to_sql('location_metadata',engine,schema='waterschappen_timeseries',index=None,if_exists='append', dtype=dtype)
+                            # metadata.to_sql('location_metadata',engine,schema='waterschappen_timeseries',index=None,if_exists='append', dtype=dtype)
 
                             skeyz = sserieskey(fc, pkeygwm, locationkey, fskey[0],timestep='nonequidistant')
                             flag = flagkeygwm
@@ -351,6 +344,8 @@ for root in paths:
                             duplicate_rows = dfx[dfx.duplicated()] #if data has duplicated
                             # print(duplicate_rows)
                             dfx=dfx.drop_duplicates() #remove the duplicated
+
+                            print(r, skeyz)
 
                             try:
                                 if r!=dfx['datetime'].iloc[-1]:

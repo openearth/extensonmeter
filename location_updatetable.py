@@ -36,7 +36,8 @@ import pandas as pd
 from ts_helpders import establishconnection, testconnection
 
 # globals
-cf = r"C:\develop\extensometer\connection_online.txt"
+# cf = r"C:\develop\extensometer\connection_online.txt"
+cf = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_online_qsomers.txt"
 session, engine = establishconnection(cf)
 con = engine.connect()
 
