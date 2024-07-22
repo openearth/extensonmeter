@@ -14,8 +14,8 @@ The datasources are described in following table with the unit of the filtersett
 
 |bron|eenheid|type|opmerking|
 |---|---|---|---|
-HDSR API|meter|Nap|API|	|
-HHNK API|meter NAP|API|	|
+HDSR API|meterNap|API||
+HHNK API|meter NAP|API||
 NOBV data|Meter maaiveld|file||	
 Handmatige data|Meter maaiveld|file	
 BRO	meter|NAP|API|Hydropandas package|
