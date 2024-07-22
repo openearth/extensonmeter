@@ -94,12 +94,12 @@ if not testconnection(engine):
 # that has measured surface elevation
 
 dcttable = {}
-dcttable["bro_timeseries.location"] = "placeholder"
-dcttable["hdsr_timeseries.location"] = "placeholder"
-dcttable["hhnk_timeseries.location"] = "placeholder"
-dcttable["wskip_timeseries.location"] = "placeholder"
+# dcttable["bro_timeseries.location"] = "placeholder"
+# dcttable["hdsr_timeseries.location"] = "placeholder"
+# dcttable["hhnk_timeseries.location"] = "placeholder"
+# dcttable["wskip_timeseries.location"] = "placeholder"
 dcttable["waterschappen_timeseries.location"] = "placeholder" #handmetingen
-dcttable["nobv_timeseries.location"] = "placeholder"  # nobv handmatige bewerkingen data
+# dcttable["nobv_timeseries.location"] = "placeholder"  # nobv handmatige bewerkingen data
 
 
 # Get a unique temporary file
