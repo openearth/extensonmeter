@@ -88,3 +88,68 @@ Make sure that the format is well known with the processing engineer who is assi
 |timeserieskey  |Integer|na |automatically generated code|
 |datetime       |DateTime|mandatory |ISO8601 standardised datetime object|
 |commenttext    |String|not mandatory |any description that will increase usage|
+
+## calibration database
+All data from subsequent providers will be aggregated into tables GWM and SWM, which are Groundwatermonitoring and surfacewatermonitoring respectively.
+
+GWM table setup 
+|columnname|data type|
+|---|---|
+source|text 
+well_id|text 
+aan_id|text 
+transect|text 
+parcel_type|text 
+x_centre_parcel|double precision 
+y_centre_parcel|double precision 
+soil_class|text 
+surface_level_m_nap|double precision 
+parcel_width_m|double precision 
+summer_stage_m_nap|double precision 
+winter_stage_m_nap|double precision 
+ditch_id|text 
+x_well|double precision 
+y_well|double precision 
+distance_to_ditch_m|double precision 
+distance_to_road_m|double precision 
+distance_to_railroad_m|double precision 
+distance_to_wis_m|double precision 
+start_date|text 
+end_date|text 
+records|integer 
+trenches|ARRAY 
+trench_depth_m_sfl|double precision 
+wis_distance_m|double precision 
+wis_depth_m_sfl|double precision 
+ditch_name|text 
+veenperceel|boolean 
+name|text 
+filterdepth|double precision 
+source|integer 
+well_id|text 
+aan_id|text 
+name|text 
+transect|text 
+parcel_type|text 
+ditch_id|text 
+ditch_name|text 
+soil_class|text 
+surface_level_m_nap|double precision 
+start_date|text 
+end_date|text 
+parcel_width_m|double precision 
+summer_stage_m_nap|double precision 
+winter_stage_m_nap|double precision 
+x_well|double precision 
+y_well|double precision 
+distance_to_ditch_m|double precision 
+trenches|ARRAY 
+trench_depth_m_sfl|double precision 
+wis_distance_m|double precision 
+wis_depth_m_sfl|double precision 
+tube_top|double precision 
+tube_bot|double precision 
+geometry|USER-DEFINED 
+parcel_geom|text 
+selection|text 
+description|text 
