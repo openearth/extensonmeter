@@ -1,8 +1,26 @@
 # Extensometer
 
-Although called Extensometer is has become a more general setup of timeseries data on behalf of research for soil subsidence.
+Although called Extensometer is has become a more general setup of timeseries data on behalf of research on soil subsidence.
 
 This github contains code for retrieving subsidence data from sftp server and putting it in a postgreSQL database.
+
+Below this the datamodel is described as well as possible. 
+The first section is about the datasource with specific attention to the units.
+
+# Datasources
+As much as 6 datasources are used derive around 1760 filters. Not all these filters are equally interesting and a specific subset is used for the calibration.
+
+The datasources are described in following table with the unit of the filtersetting as well as the unit of the timeseries data.
+
+|bron|eenheid|type|opmerking|
+|---|---|---|---|
+HDSR API|meter|Nap|API|	|
+HHNK API|meter NAP|API|	|
+NOBV data|Meter maaiveld|file||	
+Handmatige data|Meter maaiveld|file	
+BRO	meter|NAP|API|Hydropandas package|
+WSKIP|meter NAP|dataservice|niet een echte API|
+
 
 # Datamodel
 The data model used is the DDL construction of FEWS Open databases. This datamodel is adapted to the needs of groundwater specific data, such as tube depth etc. 
@@ -153,3 +171,4 @@ geometry|USER-DEFINED
 parcel_geom|text 
 selection|text 
 description|text 
+
