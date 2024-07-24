@@ -174,11 +174,11 @@ path_2 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvra
 path_3 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\HDSR\geschikte_data'
 path_4 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\AGV'
 path_5 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\HunzeenAas\bewerkt'
-path_6 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Wetterskip'
+path_6 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Wetterskip\SWM'
 
 # Create a list of paths
 # paths = [path_1, path_2]
-paths = [path_6]
+# paths = [path_6]
 
 #assigning parameters, either grondwaterstand or slootwaterpeil
 #zoetwaterstijghoogtes
@@ -231,132 +231,132 @@ for root in paths:
                     else:
                         locationkey = x+1
                     print('Location not stored yet:', name)
+                    fskey = loadfilesource(os.path.join(root,file),fc,f"{name}_{data}")
                 else:
                     locationkey = y[0]
                     print('location already stored:', name)
-
-                    fskey = loadfilesource(os.path.join(root,file),fc,f"{name}_{data}")
                     
-                    dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
+                dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
                     # print(dfx)
-                    if data == 'SWM':
-                        df= extract_info_from_text_file(os.path.join(root,file))
-                        df.columns = new_loc_swm
+                if data == 'SWM':
+                    df= extract_info_from_text_file(os.path.join(root,file))
+                    df.columns = new_loc_swm
 
-                        string_columns = df.select_dtypes(include=['object']).columns
+                    string_columns = df.select_dtypes(include=['object']).columns
+                    for col in string_columns:
+                        if col != 'name':
+                            df[col] = df[col].apply(lambda x: x.replace(',', '.'))
+                            df[col] = df[col].astype(float)
+
+                    df['locationkey'] = locationkey
+                    df['epsgcode'] = 28992
+                    df['filesourcekey']=fskey[0][0] 
+
+                    if y == False: 
+                        df.to_sql('location',engine,schema='waterschappen_timeseries',index=None,if_exists='append')
+                        stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='waterschappen_timeseries',t='location')
+                        engine.execute(stmt)
+
+                    skeyz = sserieskey(fc, pkeyswm, locationkey, fskey[0],timestep='nonequidistant')
+                    flag = flagkeyswm
+
+                    dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
+                    dfx.columns = timeseries
+                    dfx['datetime'] = dfx['datetime'].str.replace("24:00:00", "00:00:00") #if they do not use the correct datetime format
+                    dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y')
+                    # dfx['scalarvalue'] = dfx['scalarvalue'].str.replace(",", ".")
+                    dfx['scalarvalue'] = dfx['scalarvalue'].astype('float64')
+                    dfx=dfx.dropna() 
+                    dfx.sort_values(by=['datetime'], inplace=True)
+
+                    r=latest_entry(skeyz) #find if there was already a timeseries stored in the database
+                    duplicate_rows = dfx[dfx.duplicated()] #find duplicated entries
+                    # print(duplicate_rows)
+                    dfx=dfx.drop_duplicates()
+                    print(r, skeyz)
+                    if r!=dfx['datetime'].iloc[-1]:
+                        dfx['timeserieskey'] = skeyz 
+                        dfx['flags' ] = flag
+                        dfx.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='waterschappen_timeseries')
+                    else:
+                        print('not updating')
+
+                    
+                elif data == 'GWM':
+                    df= extract_info_from_text_file(os.path.join(root,file))
+                    locationtable = df[cols_loctable]
+                    locationtable.columns = new_loctabel
+
+                    string_columns = locationtable.select_dtypes(include=['object']).columns #when people send things with comma's instead of points as delimiters
+                    for col in string_columns: #convert str data 
+                        if col != 'name':
+                            locationtable[col] = locationtable[col].apply(lambda x: x.replace(',', '.'))
+                            locationtable[col] = locationtable[col].astype(float)
+
+                    #add epsg and add locationkey
+                    locationtable['locationkey'] = locationkey
+                    locationtable['epsgcode'] = 28992
+                    locationtable['filesourcekey']=fskey[0][0] 
+
+                    if y == False: 
+                        locationtable.to_sql('location',engine,schema='waterschappen_timeseries',index=None,if_exists='append')
+                        stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='waterschappen_timeseries',t='location')
+                        engine.execute(stmt)
+                        
+                        metadata = df[cols_metatable]
+                        metadata = metadata.rename(columns={'slootafstand (m)': 'parcel_width_m', 
+                                                            'greppelafstand (m)':'trenches',
+                                                            'greppeldiepte (m-mv)':'trench_depth_m_sfl',
+                                                            'zomer streefpeil (m NAP)': 'summer_stage_m_nap', 
+                                                            'winter streefpeil (m NAP)':'winter_stage_m_nap',
+                                                            'WIS afstand (m)': 'wis_distance_m',
+                                                            'WIS diepte (m-mv)': 'wis_depth_m_sfl'})
+                        
+                        string_columns = metadata.select_dtypes(include=['object']).columns
                         for col in string_columns:
                             if col != 'name':
-                                df[col] = df[col].apply(lambda x: x.replace(',', '.'))
-                                df[col] = df[col].astype(float)
+                                metadata[col] = metadata[col].apply(lambda x: x.replace(',', '.'))
+                                metadata[col] = metadata[col].astype(float)
 
-                        df['locationkey'] = locationkey
-                        df['epsgcode'] = 28992
-                        df['filesourcekey']=fskey[0][0] 
+                        metadata = metadata.replace('nan', np.nan)
+                        metadata['trenches'] = metadata['trenches'].apply(lambda x: [x])
+                        metadata['well_id'] = locationkey
 
-                        if y == False: 
-                            df.to_sql('location',engine,schema='waterschappen_timeseries',index=None,if_exists='append')
-                            stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='waterschappen_timeseries',t='location')
-                            engine.execute(stmt)
+                        dtype = {
+                            'trenches': ARRAY(DOUBLE_PRECISION) #making sure trenches is exported as a double precision array
+                        }
+                        # metadata.to_sql('location_metadata',engine,schema='waterschappen_timeseries',index=None,if_exists='append', dtype=dtype)
 
-                        skeyz = sserieskey(fc, pkeyswm, locationkey, fskey[0],timestep='nonequidistant')
-                        flag = flagkeyswm
+                    skeyz = sserieskey(fc, pkeygwm, locationkey, fskey[0],timestep='nonequidistant')
+                    flag = flagkeygwm
 
-                        dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
-                        dfx.columns = timeseries
-                        dfx['datetime'] = dfx['datetime'].str.replace("24:00:00", "00:00:00") #if they do not use the correct datetime format
-                        dfx['datetime'] = pd.to_datetime(dfx['datetime'], infer_datetime_format=True)
-                        dfx['scalarvalue'] = dfx['scalarvalue'].str.replace(",", ".")
-                        dfx['scalarvalue'] = dfx['scalarvalue'].astype('float64')
-                        dfx=dfx.dropna() 
-                        dfx
+                    dfx = pd.read_csv(os.path.join(root,file), sep=';', skiprows=nrrows, header = None, names = colnames)
+                    dfx.columns = timeseries
+                    dfx['datetime'] = dfx['datetime'].str.replace("24:00:00", "00:00:00")
+                    dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y %H:%M:%S')
+                    # dfx['scalarvalue'] = dfx['scalarvalue'].str.replace(",", ".")
+                    dfx['scalarvalue'] = dfx['scalarvalue'].astype('float64')
+                    dfx=dfx.dropna() 
 
-                        r=latest_entry(skeyz) #find if there was already a timeseries stored in the database
-                        duplicate_rows = dfx[dfx.duplicated()] #find duplicated entries
-                        # print(duplicate_rows)
-                        dfx=dfx.drop_duplicates()
-                        print(r, skeyz)
-                        if r!=dfx['datetime'].iloc[-1]:
-                            dfx['timeserieskey'] = skeyz 
-                            dfx['flags' ] = flag
-                            dfx.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='waterschappen_timeseries')
-                        else:
-                            print('not updating')
+                    r=latest_entry(skeyz)
+                    duplicate_rows = dfx[dfx.duplicated()] #if data has duplicated
+                    # print(duplicate_rows)
+                    dfx=dfx.drop_duplicates() #remove the duplicated
+                    dfx.sort_values(by=['datetime'], inplace=True)
 
-                    
-                    elif data == 'GWM':
-                        df= extract_info_from_text_file(os.path.join(root,file))
-                        locationtable = df[cols_loctable]
-                        locationtable.columns = new_loctabel
+                    print(r, skeyz)
 
-                        string_columns = locationtable.select_dtypes(include=['object']).columns #when people send things with comma's instead of points as delimiters
-                        for col in string_columns: #convert str data 
-                            if col != 'name':
-                                locationtable[col] = locationtable[col].apply(lambda x: x.replace(',', '.'))
-                                locationtable[col] = locationtable[col].astype(float)
-
-                        #add epsg and add locationkey
-                        locationtable['locationkey'] = locationkey
-                        locationtable['epsgcode'] = 28992
-                        locationtable['filesourcekey']=fskey[0][0] 
-
-                        if y == False: 
-                            locationtable.to_sql('location',engine,schema='waterschappen_timeseries',index=None,if_exists='append')
-                            stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='waterschappen_timeseries',t='location')
-                            engine.execute(stmt)
-                            
-                            metadata = df[cols_metatable]
-                            metadata = metadata.rename(columns={'slootafstand (m)': 'parcel_width_m', 
-                                                                'greppelafstand (m)':'trenches',
-                                                                'greppeldiepte (m-mv)':'trench_depth_m_sfl',
-                                                                'zomer streefpeil (m NAP)': 'summer_stage_m_nap', 
-                                                                'winter streefpeil (m NAP)':'winter_stage_m_nap',
-                                                                'WIS afstand (m)': 'wis_distance_m',
-                                                                'WIS diepte (m-mv)': 'wis_depth_m_sfl'})
-                            
-                            string_columns = metadata.select_dtypes(include=['object']).columns
-                            for col in string_columns:
-                                if col != 'name':
-                                    metadata[col] = metadata[col].apply(lambda x: x.replace(',', '.'))
-                                    metadata[col] = metadata[col].astype(float)
-
-                            metadata = metadata.replace('nan', np.nan)
-                            metadata['trenches'] = metadata['trenches'].apply(lambda x: [x])
-                            metadata['well_id'] = locationkey
-
-                            dtype = {
-                                'trenches': ARRAY(DOUBLE_PRECISION) #making sure trenches is exported as a double precision array
-                            }
-                            # metadata.to_sql('location_metadata',engine,schema='waterschappen_timeseries',index=None,if_exists='append', dtype=dtype)
-
-                        skeyz = sserieskey(fc, pkeygwm, locationkey, fskey[0],timestep='nonequidistant')
-                        flag = flagkeygwm
-
-                        dfx = pd.read_csv(os.path.join(root,file), sep=';', skiprows=nrrows, header = None, names = colnames)
-                        dfx.columns = timeseries
-                        dfx['datetime'] = dfx['datetime'].str.replace("24:00:00", "00:00:00")
-                        dfx['datetime'] = pd.to_datetime(dfx['datetime'], infer_datetime_format=True)
-                        dfx['scalarvalue'] = dfx['scalarvalue'].str.replace(",", ".")
-                        dfx['scalarvalue'] = dfx['scalarvalue'].astype('float64')
-                        dfx=dfx.dropna() 
-
-                        r=latest_entry(skeyz)
-                        duplicate_rows = dfx[dfx.duplicated()] #if data has duplicated
-                        # print(duplicate_rows)
-                        dfx=dfx.drop_duplicates() #remove the duplicated
-
-                        print(r, skeyz)
-
-                        if r!=dfx['datetime'].iloc[-1]:
-                            dfx['timeserieskey'] = skeyz 
-                            dfx['flags' ] = flag
-                            dfx.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='waterschappen_timeseries')
-                        else:
-                            print('not updating')
-
-
-
+                    if r!=dfx['datetime'].iloc[-1]:
+                        dfx['timeserieskey'] = skeyz 
+                        dfx['flags' ] = flag
+                        dfx.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='waterschappen_timeseries')
                     else:
-                        print('NOT SWM or GWM:', name)
+                        print('not updating')
+
+
+
+                else:
+                    print('NOT SWM or GWM:', name)
 #     # %%
 # ALTER TABLE nobv_timeseries.location_metadata DROP COLUMN trenches;
 # ALTER TABLE nobv_timeseries.location_metadata 
