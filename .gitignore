@@ -8,3 +8,4 @@ config*.txt
 .DS_Store
 .*.un~
 .idea
+handmatige_uitvraag_to_db_ghn.py

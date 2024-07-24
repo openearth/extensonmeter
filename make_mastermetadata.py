@@ -74,6 +74,7 @@ dctcolumns["trenches"] = "double precision[]"
 dctcolumns["trench_depth_m_sfl"] = "double precision"
 dctcolumns["wis_distance_m"] = "double precision"
 dctcolumns["wis_depth_m_sfl"] = "double precision"
+dctcolumns["distance_wis"] = "double precision"
 dctcolumns["tube_top"] = "double precision"
 dctcolumns["tube_bot"] = "double precision"
 dctcolumns["geometry"] = (
@@ -84,8 +85,8 @@ dctcolumns["selection"] = "text"
 dctcolumns["description"] = "text"
 
 # globals
-# cf = r"C:\develop\extensometer\connection_online.txt"
-cf = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_online_qsomers.txt"
+cf = r"C:\develop\extensometer\connection_online.txt"
+# cf = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_online_qsomers.txt"
 session, engine = establishconnection(cf)
 
 if not testconnection(engine):
@@ -150,8 +151,8 @@ for tbl in dcttable.keys():
             mt.parcel_width_m, 
             mt.summer_stage_m_nap,
             mt.winter_stage_m_nap, 
-            mt.x_well,
-            mt.y_well, 
+            st_x(l.geom),
+            st_y(l.geom),            
             mt.distance_to_ditch_m,
             mt.trenches,
             mt.trench_depth_m_sfl,
@@ -189,8 +190,8 @@ for tbl in dcttable.keys():
         mt.parcel_width_m, 
         mt.summer_stage_m_nap,
         mt.winter_stage_m_nap, 
-        mt.x_well,
-        mt.y_well, 
+        st_x(l.geom),
+        st_y(l.geom), 
         mt.distance_to_ditch_m,
         mt.trenches,
         mt.trench_depth_m_sfl,
@@ -243,7 +244,7 @@ for tbl in dcttable.keys():
             DO NOTHING;"""
         engine.execute(strsql)
 
-#%%
+# %%
 
 strsql = f"""WITH updated_values AS (
     SELECT DISTINCT ON (l.source) 
@@ -272,7 +273,7 @@ FROM updated_values
 WHERE metadata_ongecontroleerd.gwm.well_id = updated_values.all_source;"""
 engine.execute(strsql)
 
- #%%
+# %%
 strsql = f"""drop table metadata_ongecontroleerd.kalibratie; 
 create table metadata_ongecontroleerd.kalibratie as
 select * from metadata_ongecontroleerd.gwm
@@ -286,3 +287,8 @@ where ditch_id is Null;"""
 engine.execute(strsql)
 
 print("created table kalibratie, validatie")
+
+# bear in mind ownership of the tables
+user = "hendrik_gt"
+strsql = f"reassing owned by {user} to qsomers"
+engine.execute(strsql)
