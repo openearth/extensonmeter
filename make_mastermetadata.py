@@ -62,6 +62,7 @@ dctcolumns["ditch_id"] = "text"
 dctcolumns["ditch_name"] = "text"
 dctcolumns["soil_class"] = "text"
 dctcolumns["surface_level_m_nap"] = "double precision"
+dctcolumns["ahn4_m_nap"] = "double precision"
 dctcolumns["start_date"] = "text"
 dctcolumns["end_date"] = "text"
 dctcolumns["parcel_width_m"] = "double precision"
@@ -136,15 +137,44 @@ for tbl in dcttable.keys():
     n = tbl.split("_")[0]
     print("attempt to exectute queries for", n)
     if n == "nobv" or n == "waterschappen":
-        strsql = f"""insert into {nwtbl} (well_id, name, aan_id, transect, parcel_type, ditch_id, ditch_name, soil_class, surface_level_m_nap, start_date, end_date, parcel_width_m, summer_stage_m_nap, winter_stage_m_nap, x_well, y_well, distance_to_ditch_m, trenches, trench_depth_m_sfl, wis_distance_m, wis_depth_m_sfl, tube_top, tube_bot, geometry, parcel_geom, selection, description)
+        strsql = f"""insert into {nwtbl} (well_id, 
+            aan_id,name,
+            transect,
+            parcel_type,
+            ditch_id,
+            ditch_name,
+            soil_class,
+            surface_level_m_nap,
+            ahn4_m_nap,
+            start_date,
+            end_date,
+            parcel_width_m,
+            summer_stage_m_nap,
+            winter_stage_m_nap,
+            x_well,
+            y_well,
+            distance_to_ditch_m,
+            trenches,
+            trench_depth_m_sfl,
+            wis_distance_m,
+            wis_depth_m_sfl,
+            distance_wis,
+            tube_top,
+            tube_bot,
+            recision,
+            geometry, 
+            parcel_geom,
+            selection,
+            description)
         SELECT ('{n}_'||l.locationkey::text) as well_id, 
-            l.name, 
             i.aan_id,
+            l.name, 
             '' as transect,
             'ref' as parcel_type,
             mt.ditch_id,
             '' as ditch_name, 
             i.archetype, 
+            l.altitude_msl,
             mt.surface_level_m_nap, 
             mt.start_date,
             mt.end_date,
@@ -158,6 +188,7 @@ for tbl in dcttable.keys():
             mt.trench_depth_m_sfl,
             mt.wis_distance_m,
             mt.wis_depth_m_sfl,
+            distance_wis,
             l.tubetop, 
             l.tubebot,
             l.geom,
@@ -175,40 +206,72 @@ for tbl in dcttable.keys():
         engine.execute(strsql)
 
     else:
-        strsql = f"""insert into {nwtbl} (well_id, name, aan_id, transect, parcel_type, ditch_id, ditch_name, soil_class, surface_level_m_nap, start_date, end_date, parcel_width_m, summer_stage_m_nap, winter_stage_m_nap, x_well, y_well, distance_to_ditch_m, trenches, trench_depth_m_sfl, wis_distance_m, wis_depth_m_sfl, tube_top, tube_bot, geometry, parcel_geom, selection, description)
-        SELECT ('{n}_'||l.locationkey::text) as well_id,
-        l.name, 
-        i.aan_id,
-        '' as transect,
-        'ref' as parcel_type,
-        mt.ditch_id,
-        '' as ditch_name, 
-        i.archetype, 
-        mt.surface_level_m_nap, 
-        mt.start_date,
-        mt.end_date,
-        mt.parcel_width_m, 
-        mt.summer_stage_m_nap,
-        mt.winter_stage_m_nap, 
-        st_x(l.geom),
-        st_y(l.geom), 
-        mt.distance_to_ditch_m,
-        mt.trenches,
-        mt.trench_depth_m_sfl,
-        mt.wis_distance_m,
-        mt.wis_depth_m_sfl,
-        l.tubetop, 
-        l.tubebot,
-        l.geom,
-        st_astext(st_force2d(i.geom)),
-        'yes',
-        l.description
-        FROM {n}_timeseries.location l
-        JOIN {n}_timeseries.location_metadata mt on mt.well_id = l.locationkey
-        JOIN public.input_parcels_2022 i on st_within(l.geom,i.geom)
-        where mt.distance_to_railroad_m > 10 and mt.distance_to_road_m > 10 and mt.distance_to_ditch_m > 5
-        ON CONFLICT(source)
-        DO NOTHING;"""
+        strsql = f"""insert into {nwtbl} (well_id, 
+            aan_id,name,
+            transect,
+            parcel_type,
+            ditch_id,
+            ditch_name,
+            soil_class,
+            surface_level_m_nap,
+            ahn4_m_nap,
+            start_date,
+            end_date,
+            parcel_width_m,
+            summer_stage_m_nap,
+            winter_stage_m_nap,
+            x_well,
+            y_well,
+            distance_to_ditch_m,
+            trenches,
+            trench_depth_m_sfl,
+            wis_distance_m,
+            wis_depth_m_sfl,
+            distance_wis,
+            tube_top,
+            tube_bot,
+            recision,
+            geometry, 
+            parcel_geom,
+            selection,
+            description)
+        SELECT ('{n}_'||l.locationkey::text) as well_id, 
+            i.aan_id,
+            l.name, 
+            '' as transect,
+            'ref' as parcel_type,
+            mt.ditch_id,
+            '' as ditch_name, 
+            i.archetype, 
+            l.altitude_msl,
+            mt.surface_level_m_nap, 
+            mt.start_date,
+            mt.end_date,
+            mt.parcel_width_m, 
+            mt.summer_stage_m_nap,
+            mt.winter_stage_m_nap, 
+            st_x(l.geom),
+            st_y(l.geom),            
+            mt.distance_to_ditch_m,
+            mt.trenches,
+            mt.trench_depth_m_sfl,
+            mt.wis_distance_m,
+            mt.wis_depth_m_sfl,
+            distance_wis,
+            l.tubetop, 
+            l.tubebot,
+            l.geom,
+            st_astext(st_force2d(i.geom)),
+            'yes' as selection,
+            l.description
+            FROM {n}_timeseries.location l
+            JOIN {n}_timeseries.location_metadata mt on mt.well_id = l.locationkey
+            JOIN {n}_timeseries.timeseries t on t.locationkey = l.locationkey
+            JOIN {n}_timeseries.parameter p on p.parameterkey = t.parameterkey
+            JOIN public.input_parcels_2022 i on st_within(l.geom,i.geom)
+            where mt.distance_to_railroad_m > 10 and mt.distance_to_road_m > 10 and mt.distance_to_ditch_m > 5
+            ON CONFLICT(source)
+            DO NOTHING;"""
         engine.execute(strsql)
 
     strsql = f"""UPDATE {nwtbl} t
