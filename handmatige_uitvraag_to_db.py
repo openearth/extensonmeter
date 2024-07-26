@@ -161,7 +161,7 @@ def find_if_stored(name):
         return False
 
 # set reference to config file
-local = False
+local = True
 if local:
     fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_local_somers.txt"
 else:
@@ -170,15 +170,15 @@ session,engine = establishconnection(fc)
 
 #manual input, give path to the root folders to loop over 
 path_1 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Rivierenland'
-path_2 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Delfland\SOMERS_DATA'
+# path_2 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Delfland\SOMERS_DATA' #heel veel data maar bijna geen locatie komt terug voor de analyse
 path_3 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\HDSR\geschikte_data'
-path_4 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\AGV'
-path_5 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\HunzeenAas\bewerkt'
-path_6 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Wetterskip\SWM'
+path_4 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\AGV' #gebruikt spaties als sep in de GWM maar niet in de SWM
+# path_5 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\HunzeenAas\bewerkt' #datum tijd notatie klopt nog niet
+path_6 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Wetterskip' #(string replace has to be on to work with this data)
 
 # Create a list of paths
 # paths = [path_1, path_2]
-# paths = [path_6]
+paths = [path_6]
 
 #assigning parameters, either grondwaterstand or slootwaterpeil
 #zoetwaterstijghoogtes
@@ -218,7 +218,9 @@ for root in paths:
         for count, file in enumerate(files):
             if file.lower().endswith(".txt"):
                 name=os.path.basename(file).split("_", 1)[1].rsplit('.',1)[0]
+                wb_name = os.path.basename(root)
                 name = name.replace('[', '').replace(']', '')
+                name = wb_name + '_' + name
                 data=os.path.basename(file).split("_", 1)[0] #find in name it is GWM or SWM
                 nrrows, colnames, xycols, datum = skiprows(os.path.join(root,file))
                 y = find_if_stored(name)  
@@ -231,11 +233,12 @@ for root in paths:
                     else:
                         locationkey = x+1
                     print('Location not stored yet:', name)
-                    fskey = loadfilesource(os.path.join(root,file),fc,f"{name}_{data}")
+                    
                 else:
                     locationkey = y[0]
                     print('location already stored:', name)
-                    
+
+                fskey = loadfilesource(os.path.join(root,file),fc,f"{name}_{data}")  
                 dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
                     # print(dfx)
                 if data == 'SWM':
@@ -263,7 +266,14 @@ for root in paths:
                     dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
                     dfx.columns = timeseries
                     dfx['datetime'] = dfx['datetime'].str.replace("24:00:00", "00:00:00") #if they do not use the correct datetime format
-                    dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y')
+                    try: 
+                        dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y')
+                    except ValueError:
+                        try: 
+                            dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y %H:%M:%S')
+                        except:
+                            dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y %H:%M')
+
                     # dfx['scalarvalue'] = dfx['scalarvalue'].str.replace(",", ".")
                     dfx['scalarvalue'] = dfx['scalarvalue'].astype('float64')
                     dfx=dfx.dropna() 
@@ -333,7 +343,13 @@ for root in paths:
                     dfx = pd.read_csv(os.path.join(root,file), sep=';', skiprows=nrrows, header = None, names = colnames)
                     dfx.columns = timeseries
                     dfx['datetime'] = dfx['datetime'].str.replace("24:00:00", "00:00:00")
-                    dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y %H:%M:%S')
+                    try: 
+                        dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y')
+                    except ValueError:
+                        try: 
+                            dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y %H:%M:%S')
+                        except:
+                            dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y %H:%M')
                     # dfx['scalarvalue'] = dfx['scalarvalue'].str.replace(",", ".")
                     dfx['scalarvalue'] = dfx['scalarvalue'].astype('float64')
                     dfx=dfx.dropna() 
@@ -358,19 +374,6 @@ for root in paths:
                 else:
                     print('NOT SWM or GWM:', name)
 #     # %%
-# ALTER TABLE nobv_timeseries.location_metadata DROP COLUMN trenches;
-# ALTER TABLE nobv_timeseries.location_metadata 
-# ADD trenches double precision[]; 
-
-# ALTER TABLE nobv_timeseries.location_metadata ADD PRIMARY KEY (well_id)
-# ALTER TABLE waterschappen_timeseries.location_metadata rename column locationkey to well_id
-
-# ALTER TABLE waterschappen_timeseries.location_metadata DROP COLUMN trenches;
-# ALTER TABLE waterschappen_timeseries.location_metadata 
-# ADD trenches double precision[]; 
-
-# ALTER TABLE waterschappen_timeseries.location_metadata ADD PRIMARY KEY (well_id)
-# ALTER TABLE waterschappen_timeseries.location_metadata rename column locationkey to well_id
 # %% FIXING THE TUBEBOTS THAT WENT WRONG. STORE IN CODE JUST IN CASE
                 # #assign a new locationkey
                 # #first find if location is already stored in the database, if not stored, the following code will be run
@@ -397,7 +400,7 @@ for root in paths:
                 #     engine.execute(strsql)
 
 
-# #%%
+# #%% updating the description in the location table 
 # df = pd.read_excel(r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Wetterskip\240703 Export_meetpunten_VW_monitoring.xlsx', skiprows=1)
 # cols = ['# naam_meetpunt','maatregel' ]
 # df = df[cols]
