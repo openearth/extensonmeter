@@ -241,12 +241,12 @@ class Location(Base):
     description = Column(String)
     x = Column(Float)
     y = Column(Float)
-    z = Column(Float)
+    z = Column(Float)  # surface level
     epsgcode = Column(Integer)
     geom = Column(Geometry("POINT", srid=28992))
-    altitude_msl = Column(Float)  # hoogte maaiveld
-    tubetop = Column(Float)
-    tubebot = Column(Float)
+    altitude_msl = Column(Float)  # top tube (m-NAP)
+    tubetop = Column(Float)  # top screen (m-NAP)
+    tubebot = Column(Float)  # bot screen (m-NAP)
     cablelength = Column(Float)  # kabellengte
 
     def __repr__(self):

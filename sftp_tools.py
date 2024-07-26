@@ -10,7 +10,7 @@ Created on Fri Sep 16 15:56:23 2022
 #   --------------------------------------------------------------------
 #   Copyright (C) 2022 Deltares
 #       Gerrit Hendriksen
-#       gerrit.hendriksen@deltares.nl   
+#       gerrit.hendriksen@deltares.nl
 #       Nathalie Dees (nathalie.dees@deltares.nl)
 #
 #   This library is free software: you can redistribute it and/or modify
@@ -41,9 +41,24 @@ from urllib.parse import urlparse
 import os
 import shutil
 
-#load local procedures to write to db
-from ext_loaddataintodatamodel import metadata_location, timeseries_todb, update_location
-from ts_helpders import establishconnection, read_config, loadfilesource,location,sparameter,sserieskey,sflag,dateto_integer,convertlttodate, stimestep
+# load local procedures to write to db
+from extensometer.ext_loaddataintodatamodel import (
+    metadata_location,
+    timeseries_todb,
+    update_location,
+)
+from ts_helpders import (
+    establishconnection,
+    read_config,
+    loadfilesource,
+    location,
+    sparameter,
+    sserieskey,
+    sflag,
+    dateto_integer,
+    convertlttodate,
+    stimestep,
+)
 
 
 class Sftp:
@@ -66,19 +81,19 @@ class Sftp:
                 host=self.hostname,
                 username=self.username,
                 password=self.password,
-                port=self.port, cnopts = cnopts
+                port=self.port,
+                cnopts=cnopts,
             )
         except Exception as err:
             raise Exception(err)
         finally:
             print(f"Connected to {self.hostname} as {self.username}.")
 
-
     def disconnect(self):
         """Closes the sftp connection"""
         self.connection.close()
         print(f"Disconnected from host {self.hostname}")
-        
+
     def listdir(self, remote_path):
         """lists all the files and directories in the specified path and returns them"""
         for obj in self.connection.listdir(remote_path):
@@ -87,8 +102,8 @@ class Sftp:
     def listdir_attr(self, remote_path):
         """lists all the files and directories (with their attributes) in the specified path and returns them"""
         for attr in self.connection.listdir_attr(remote_path):
-            yield attr        
-            
+            yield attr
+
     def download(self, remote_path, target_local_path):
         """
         Downloads the file from remote sftp server to local.
@@ -113,9 +128,8 @@ class Sftp:
             print("download completed")
 
         except Exception as err:
-            raise Exception(err)   
+            raise Exception(err)
 
-    def remove_file(self,file):
+    def remove_file(self, file):
         "removes file from ftp server according to sftp docs"
-        self.connection.remove(file)      
-        
+        self.connection.remove(file)
