@@ -43,7 +43,7 @@ import rasterio
 
 ## Utils WCS [from fast]
 from utils_wcs import *
-from ts_helpders import establishconnection, testconnection
+from ts_helpders.ts_helpders import establishconnection, testconnection
 
 # globals
 geoserver_url = "https://service.pdok.nl/rws/ahn/wcs/v1_0"

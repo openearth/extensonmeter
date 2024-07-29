@@ -33,7 +33,7 @@ import time
 # import StringIO
 import os
 
-from ts_helpders import establishconnection, testconnection
+from ts_helpders.ts_helpders import establishconnection, testconnection
 from db_helpders import preptable
 
 # ----- set various generic (location dependend) data in metadata table (xy from well)

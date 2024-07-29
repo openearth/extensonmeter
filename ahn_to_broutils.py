@@ -47,7 +47,7 @@ import rasterio
 
 ## Utils WCS [from fast]
 from utils_wcs import *
-from ts_helpders import establishconnection, testconnection
+from ts_helpders.ts_helpders import establishconnection, testconnection
 
 dctcolumns = {}
 dctcolumns["well_id"] = "text"

@@ -207,7 +207,7 @@ cols_metatable=['slootafstand (m)',
                 'WIS diepte (m-mv)'
                 ]
 
-new_loctabel = ['name', 'x', 'y', 'tubetop', 'tubebot', 'altitude_msl']
+new_loctabel = ['name', 'x', 'y', 'tubetop', 'tubebot', 'z']
 new_loc_swm = [ 'name', 'x', 'y']
 timeseries = ['datetime','scalarvalue']   
 
