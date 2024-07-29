@@ -50,8 +50,8 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION
 
 # local procedures
-from orm_timeseries_nobv import Base,FileSource,Location,Parameter,Unit,TimeSeries,TimeSeriesValuesAndFlags,Flags
-from ts_helpders_nobv import establishconnection, read_config, loadfilesource,location,sparameter,sserieskey,sflag,dateto_integer,convertlttodate, stimestep
+from orm_timeseries.orm_timeseries_nobv import Base,FileSource,Location,Parameter,Unit,TimeSeries,TimeSeriesValuesAndFlags,Flags
+from ts_helpders.ts_helpders_nobv import establishconnection, read_config, loadfilesource,location,sparameter,sserieskey,sflag,dateto_integer,convertlttodate, stimestep
 
 
 def read_config(af):
@@ -303,7 +303,7 @@ for root,subdirs,files in os.walk(root):
                         'trenches': ARRAY(DOUBLE_PRECISION) #making sure trenches is exported as a double precision array
                     }
 
-                    metadata.to_sql('location_metadata',engine,schema='nobv_timeseries',index=None,if_exists='append', dtype=dtype)
+                    metadata.to_sql('location_metadata2',engine,schema='nobv_timeseries',index=None,if_exists='append', dtype=dtype)
 
                     skeyz = sserieskey(fc, pkeygwm, locationkey, fskey[0],timestep='nonequidistant')
                     flag = flagkeygwm

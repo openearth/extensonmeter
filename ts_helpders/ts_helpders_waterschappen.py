@@ -44,7 +44,7 @@ from geoalchemy2 import Geometry
 
 
 ## Declare a Mapping to the database
-from orm_timeseries_waterschappen import (
+from orm_timeseries.orm_timeseries_waterschappen import (
     Base,
     FileSource,
     Location,

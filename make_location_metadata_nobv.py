@@ -82,6 +82,17 @@ for i in range(len(locs)):
         # Handle the conflict (e.g., log the error or ignore it)
         print(f"Error: {e}. {lockey}.")
 
+#create list to loop over
+rename_cols = ['parcel_width_m', 'trenches', 'trench_depth_m_sfl', 'summer_stage_m_nap', 'winter_stage_m_nap','wis_distance_m','wis_depth_m_sfl']
+for i in range(len(rename_cols)):
+    strsql=f"""
+    UPDATE nobv_timeseries.location_metadata2 m2
+    SET {rename_cols[i]} = m1.{rename_cols[i]}
+    FROM nobv_timeseries.location_metadata m1
+    WHERE m1.well_id = m2.well_id
+    """
+    engine.execute(strsql)
+
 # 3 assign ahn4 (needs some small changes to get it working)
 
 # 4 assign soiltype

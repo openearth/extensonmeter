@@ -44,7 +44,7 @@ from sqlalchemy import Boolean, Integer, Float, DateTime, String, Text
 from geoalchemy2 import Geometry
 
 ## Declare a Mapping to the database
-from orm_timeseries_hdsr import (
+from orm_timeseries.orm_timeseries_hdsr import (
     Base,
     FileSource,
     Location,

@@ -48,7 +48,7 @@ import rasterio
 
 ## Utils WCS [from fast]
 from utils_wcs import *
-from ts_helpders import establishconnection, testconnection
+from ts_helpders.ts_helpders import establishconnection, testconnection
 
 # dictionary below is used to setup the mastertable that collects all data from the various schema's into 1 table
 
