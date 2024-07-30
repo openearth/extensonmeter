@@ -31,7 +31,7 @@ Created on Thu Jan  7 14:49:58 2021
 # Sign up to recieve regular updates of this function, and to contribute
 # your own tools.
 
-from ts_helpders.ts_helpders import establishconnection, testconnection
+from ts_helpers.ts_helpers import establishconnection, testconnection
 
 # setup of location_metadata table
 dctcolumns = {}

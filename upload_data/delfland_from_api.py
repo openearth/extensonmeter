@@ -35,19 +35,39 @@ import configparser
 
 # third party packages
 from sqlalchemy.sql.expression import update
-from sqlalchemy import exc,func
+from sqlalchemy import exc, func
 from sqlalchemy.dialects import postgresql
 
 # local procedures
-from orm_timeseries_delf import Base,FileSource,Location,Parameter,Unit,TimeSeries,TimeSeriesValuesAndFlags,Flags
-from ts_helpders_delf import establishconnection, read_config, loadfilesource,location,sparameter,sserieskey,sflag,dateto_integer,convertlttodate, stimestep
+from orm_timeseries_delf import (
+    Base,
+    FileSource,
+    Location,
+    Parameter,
+    Unit,
+    TimeSeries,
+    TimeSeriesValuesAndFlags,
+    Flags,
+)
+from ts_helpers_delf import (
+    establishconnection,
+    read_config,
+    loadfilesource,
+    location,
+    sparameter,
+    sserieskey,
+    sflag,
+    dateto_integer,
+    convertlttodate,
+    stimestep,
+)
 
-#------temp paths/things for testing
-path_csv = r'C:\projecten\nobv\2023\code'
-#-------
+# ------temp paths/things for testing
+path_csv = r"C:\projecten\nobv\2023\code"
+# -------
 
-# %% 
-#----------------postgresql connection
+# %%
+# ----------------postgresql connection
 # data is stored in PostgreSQL/PostGIS database. A connection string is needed to interact with the database. This is typically stored in
 # a file.
 
@@ -56,119 +76,145 @@ if local:
     fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_local_somers.txt"
 else:
     fc = r"C:\projecten\grondwater_monitoring\ijmuiden\connection_online.txt"
-session,engine = establishconnection(fc)
+session, engine = establishconnection(fc)
 
-#Functions
-#function to find latest entry 
+
+# Functions
+# function to find latest entry
 def latest_entry(skey):
-    """function to find the lastest timestep entry per skey. 
+    """function to find the lastest timestep entry per skey.
     input = skey
     output = pandas df containing either none or a date"""
-    stmt="""select max(datetime) from timeseries.timeseriesvaluesandflags
-        where timeserieskey={s};""".format(s=skey)
+    stmt = """select max(datetime) from timeseries.timeseriesvaluesandflags
+        where timeserieskey={s};""".format(
+        s=skey
+    )
     r = engine.execute(stmt).fetchall()[0][0]
-    r=pd.to_datetime(r) 
-    return r 
+    r = pd.to_datetime(r)
+    return r
+
+
 # %%
-configfile = r'C:\projecten\grondwater_monitoring\nobv\2023\apikey\delfland_config.txt'
-cf = configparser.ConfigParser() 
-cf.read(configfile)      
+configfile = r"C:\projecten\grondwater_monitoring\nobv\2023\apikey\delfland_config.txt"
+cf = configparser.ConfigParser()
+cf.read(configfile)
 
 # Authentication
-username = '__key__'
-password = cf.get('API','apikey')    # API key
+username = "__key__"
+password = cf.get("API", "apikey")  # API key
 
 json_headers = {
-            "username": username,
-            "password": password,
-            "Content-Type": "application/json",
-        }
+    "username": username,
+    "password": password,
+    "Content-Type": "application/json",
+}
 
-#%%
-# the url to retrieve the data from, groundwaterstation data 
+# %%
+# the url to retrieve the data from, groundwaterstation data
 
 ground = "https://delfland.lizard.net/api/v4/measuringstations/"
-#creation of empty lists to fill during retrieving process
+# creation of empty lists to fill during retrieving process
 gdata = []
-tsv=[]
-timeurllist= []
+tsv = []
+timeurllist = []
 
-#retrieve information about' the different groundwater stations, this loops through all the pages
+# retrieve information about' the different groundwater stations, this loops through all the pages
 response = requests.get(ground, headers=json_headers).json()
-groundwater = response['results']
+groundwater = response["results"]
 while response["next"]:
     response = requests.get(response["next"]).json()
     groundwater.extend(response["results"])
 
-#start retrieving of the seperate timeseries per groundwaterstation
+    # start retrieving of the seperate timeseries per groundwaterstation
     for i in range(len(response)):
-        if response['results'][0]['station_type'] != 'weather':
-            geom = response['results'][i]['geometry']
+        if response["results"][0]["station_type"] != "weather":
+            geom = response["results"][i]["geometry"]
 
-            #creation of a metadata dict to store the data
-            fskey = loadfilesource(response['results'][i]['url'],fc)
-            locationkey=location(fc=fc, 
-                                fskey=fskey[0][0],
-                                name=response['results'][i]['name'],
-                                x=geom["coordinates"][0],
-                                y=geom["coordinates"][1],
-                                epsg=4326,
-                                description=response['results'][i]['station_type']
-                                )
+            # creation of a metadata dict to store the data
+            fskey = loadfilesource(response["results"][i]["url"], fc)
+            locationkey = location(
+                fc=fc,
+                fskey=fskey[0][0],
+                name=response["results"][i]["name"],
+                x=geom["coordinates"][0],
+                y=geom["coordinates"][1],
+                epsg=4326,
+                description=response["results"][i]["station_type"],
+            )
             print(locationkey)
-            #conversion to df
-            #gdata.append(metadata)
-            #df = pd.DataFrame(gdata
+            # conversion to df
+            # gdata.append(metadata)
+            # df = pd.DataFrame(gdata
 
-            #does this part when the response is not empty
-            if response['results'][i]['timeseries']:
-                ts = response['results'][i]['timeseries'][0]
+            # does this part when the response is not empty
+            if response["results"][i]["timeseries"]:
+                ts = response["results"][i]["timeseries"][0]
 
-                #new call to retrieve timeseries
+                # new call to retrieve timeseries
                 tsresponse = requests.get(ts).json()
-                params={'value__isnull': False, 
-                        'time__gte':'2013-01-01T00:00:00Z'
-                        }
-                t = requests.get(ts + 'events', params=params,headers=json_headers).json()['results']
-                #only retrieving data which has a flag below four, flags are added next to the timeseries
-                #this is why we first need to extract all timeseries before we can filter on flags... 
-                #for flags see: https://publicwiki.deltares.nl/display/FEWSDOC/D+Time+Series+Flags
-                if t: 
-                    if t[i]['flag'] is not None and t[i]['flag'] < 5:
-                        pkeygws = sparameter(fc,
-                                            tsresponse['observation_type']['unit'],
-                                            tsresponse['observation_type']['parameter'],
-                                            [tsresponse['observation_type']['unit'], tsresponse['observation_type']['reference_frame']], #unit
-                                            tsresponse['observation_type']['description']
-                                            )
-                        flagkey = sflag(fc,
-                                        str(t[i]['flag']),
-                                        'FEWS-flag'
-                                        )
-                        
-                        skeygws = sserieskey(fc, 
-                                            pkeygws, 
-                                            locationkey, 
-                                            fskey[0],
-                                            timestep='nonequidistant'
-                                            )
-                        df=pd.DataFrame.from_dict(t)
+                params = {"value__isnull": False, "time__gte": "2013-01-01T00:00:00Z"}
+                t = requests.get(
+                    ts + "events", params=params, headers=json_headers
+                ).json()["results"]
+                # only retrieving data which has a flag below four, flags are added next to the timeseries
+                # this is why we first need to extract all timeseries before we can filter on flags...
+                # for flags see: https://publicwiki.deltares.nl/display/FEWSDOC/D+Time+Series+Flags
+                if t:
+                    if t[i]["flag"] is not None and t[i]["flag"] < 5:
+                        pkeygws = sparameter(
+                            fc,
+                            tsresponse["observation_type"]["unit"],
+                            tsresponse["observation_type"]["parameter"],
+                            [
+                                tsresponse["observation_type"]["unit"],
+                                tsresponse["observation_type"]["reference_frame"],
+                            ],  # unit
+                            tsresponse["observation_type"]["description"],
+                        )
+                        flagkey = sflag(fc, str(t[i]["flag"]), "FEWS-flag")
 
-                        df['datetime']=pd.to_datetime(df['time'])
+                        skeygws = sserieskey(
+                            fc,
+                            pkeygws,
+                            locationkey,
+                            fskey[0],
+                            timestep="nonequidistant",
+                        )
+                        df = pd.DataFrame.from_dict(t)
 
-                        r=latest_entry(skeygws)
-                        if r!=(df['datetime'].iloc[-1]).replace(tzinfo=None):
+                        df["datetime"] = pd.to_datetime(df["time"])
+
+                        r = latest_entry(skeygws)
+                        if r != (df["datetime"].iloc[-1]).replace(tzinfo=None):
                             try:
-                                df.drop(columns=['validation_code', 'comment', 'time', 'last_modified','detection_limit', 'flag'],inplace=True)
-                                df=df.rename(columns = {'value':'scalarvalue'}) #change column
-                                df['timeserieskey'] = skeygws
-                                df['flags'] = flagkey
-                                df.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='hdsrtimeseries')
+                                df.drop(
+                                    columns=[
+                                        "validation_code",
+                                        "comment",
+                                        "time",
+                                        "last_modified",
+                                        "detection_limit",
+                                        "flag",
+                                    ],
+                                    inplace=True,
+                                )
+                                df = df.rename(
+                                    columns={"value": "scalarvalue"}
+                                )  # change column
+                                df["timeserieskey"] = skeygws
+                                df["flags"] = flagkey
+                                df.to_sql(
+                                    "timeseriesvaluesandflags",
+                                    engine,
+                                    index=False,
+                                    if_exists="append",
+                                    schema="hdsrtimeseries",
+                                )
                             except:
-                                continue 
+                                continue
 
 # %% Retrieving data from API and putting in database
-# the url to retrieve the data from, groundwaterstation data 
+# the url to retrieve the data from, groundwaterstation data
 
 """
 ground = "https://delfland.lizard.net/api/v4/groundwaterstations/"

@@ -63,7 +63,7 @@ from orm_timeseries import (
     TimeSeriesValuesAndFlags,
     Flags,
 )
-from ts_helpders import (
+from ts_helpers import (
     establishconnection,
     read_config,
     loadfilesource,

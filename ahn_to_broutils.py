@@ -47,7 +47,7 @@ import rasterio
 
 ## Utils WCS [from fast]
 from utils_wcs import *
-from ts_helpders.ts_helpders import establishconnection, testconnection
+from ts_helpers.ts_helpers import establishconnection, testconnection
 
 dctcolumns = {}
 dctcolumns["well_id"] = "text"
@@ -98,7 +98,7 @@ dcttable = {}
 # dcttable["hdsr_timeseries.location"] = "placeholder"
 # dcttable["hhnk_timeseries.location"] = "placeholder"
 # dcttable["wskip_timeseries.location"] = "placeholder"
-dcttable["waterschappen_timeseries.location"] = "placeholder" #handmetingen
+dcttable["waterschappen_timeseries.location"] = "placeholder"  # handmetingen
 # dcttable["nobv_timeseries.location"] = "placeholder"  # nobv handmatige bewerkingen data
 
 
@@ -455,7 +455,6 @@ for tbl in dcttable.keys():
 
 # remove the last union to get the following sql, this should be adjusted to the new datamodel
 
-#TODO create dictonaries to loop through the exceptions 
-#can use the insert into, do not have to create new tables but is possible
-#TODO try to add the extra queries which do this
-
+# TODO create dictonaries to loop through the exceptions
+# can use the insert into, do not have to create new tables but is possible
+# TODO try to add the extra queries which do this

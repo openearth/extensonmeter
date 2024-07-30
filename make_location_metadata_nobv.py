@@ -25,8 +25,8 @@
 # your own tools.
 
 ## some helper functions
-from ts_helpders.ts_helpders import establishconnection, testconnection
-from db_helpders import create_location_metadatatable
+from ts_helpers.ts_helpers import establishconnection, testconnection
+from db_helpers import create_location_metadatatable
 import assign_soiltype
 import assign_parcelvalues
 
@@ -82,10 +82,18 @@ for i in range(len(locs)):
         # Handle the conflict (e.g., log the error or ignore it)
         print(f"Error: {e}. {lockey}.")
 
-#create list to loop over
-rename_cols = ['parcel_width_m', 'trenches', 'trench_depth_m_sfl', 'summer_stage_m_nap', 'winter_stage_m_nap','wis_distance_m','wis_depth_m_sfl']
+# create list to loop over
+rename_cols = [
+    "parcel_width_m",
+    "trenches",
+    "trench_depth_m_sfl",
+    "summer_stage_m_nap",
+    "winter_stage_m_nap",
+    "wis_distance_m",
+    "wis_depth_m_sfl",
+]
 for i in range(len(rename_cols)):
-    strsql=f"""
+    strsql = f"""
     UPDATE nobv_timeseries.location_metadata2 m2
     SET {rename_cols[i]} = m1.{rename_cols[i]}
     FROM nobv_timeseries.location_metadata m1

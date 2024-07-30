@@ -44,8 +44,8 @@ from datetime import datetime
 import pandas as pd
 
 from orm_timeseries import TimeSeriesValuesAndFlags as tsv
-from ts_helpders import loadfilesource, location, establishconnection, Location
-from ts_helpders import sparameter, stimestep, sflag, sserieskey
+from ts_helpers import loadfilesource, location, establishconnection, Location
+from ts_helpers import sparameter, stimestep, sflag, sserieskey
 
 local = False
 if local:

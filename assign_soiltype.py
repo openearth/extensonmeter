@@ -32,7 +32,7 @@ import time
 
 # import StringIO
 import os
-from db_helpders import preptable
+from db_helpers import preptable
 
 
 # Get locations from database

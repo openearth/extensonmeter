@@ -33,7 +33,7 @@ import os
 import pandas as pd
 
 # import custum functions
-from ts_helpders import establishconnection, testconnection
+from ts_helpers import establishconnection, testconnection
 
 # globals
 # cf = r"C:\develop\extensometer\connection_online.txt"

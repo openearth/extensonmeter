@@ -47,7 +47,7 @@ from extensometer.ext_loaddataintodatamodel import (
     timeseries_todb,
     update_location,
 )
-from ts_helpders import (
+from ts_helpers import (
     establishconnection,
     read_config,
     loadfilesource,

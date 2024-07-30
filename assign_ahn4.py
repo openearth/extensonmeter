@@ -43,18 +43,11 @@ import rasterio
 
 ## Utils WCS [from fast]
 from utils_wcs import *
-from ts_helpders.ts_helpders import establishconnection, testconnection
+from ts_helpers.ts_helpers import establishconnection, testconnection
 
 # globals
 geoserver_url = "https://service.pdok.nl/rws/ahn/wcs/v1_0"
 layername = "dtm_05m"
-
-
-# setup connection
-def setupconnecton(cf):
-    session, engine = establishconnection(cf)
-    return engine
-
 
 # dictionary of tables to check for data in column altitude_msl
 # key = tablename, value = columnname
@@ -123,7 +116,7 @@ def cut_wcs(
     return outfname
 
 
-def getsrid(cf, tbl):
+def getsrid(engine, tbl):
     """Retrieve srid of specific table
 
     Args:
@@ -132,12 +125,10 @@ def getsrid(cf, tbl):
     Returns:
         _type_: EPSG code of geom column
     """
-    engine = setupconnecton(cf)
     schema = tbl.split(".")[0]
     table = tbl.split(".")[1]
     strsql = f"select find_srid('{schema}','{table}','geom')"
     srid = engine.execute(strsql).fetchone()[0]
-    engine.dispose()
     return srid
 
 
@@ -168,7 +159,7 @@ def getmv4point(x, y):
 
 # Get locations from database
 # convert xy to lon lat --> via query :)
-def assign_ahn(cf, tbl):
+def assign_ahn(engine, tbl):
     """Update metadata table with the AHN4 value for the specific cell
 
     Args:
@@ -178,8 +169,7 @@ def assign_ahn(cf, tbl):
     Returns:
         ...
     """
-    engine = setupconnecton(cf)
-    srid = getsrid(tbl)
+    srid = getsrid(engine, tbl)
     if srid != None:
         # create table location_mv, with ID and MV based on AHN
         nwtbl = tbl.replace("location", "location_metadata")
@@ -211,4 +201,3 @@ def assign_ahn(cf, tbl):
                 engine.execute(strsql)
             except:
                 print("not updating AHN")
-    engine.dispose()

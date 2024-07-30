@@ -28,8 +28,8 @@
 # - assignment distance from well to various entities of top10
 
 ## various helper functions
-from ts_helpders.ts_helpders import establishconnection, testconnection
-from db_helpders import preptable
+from ts_helpers.ts_helpers import establishconnection, testconnection
+from db_helpers import preptable
 
 
 # setup connection

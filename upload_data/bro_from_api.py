@@ -53,7 +53,7 @@ from orm_timeseries_bro import (
     TimeSeriesValuesAndFlags as tsv,
     Flags,
 )
-from ts_helpders_bro import (
+from ts_helpers_bro import (
     establishconnection,
     read_config,
     loadfilesource,

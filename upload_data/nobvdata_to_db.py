@@ -45,13 +45,33 @@ import matplotlib.pyplot as plt
 
 # third party packages
 from sqlalchemy.sql.expression import update
-from sqlalchemy import exc,func, ARRAY, Float
+from sqlalchemy import exc, func, ARRAY, Float
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION
 
 # local procedures
-from orm_timeseries.orm_timeseries_nobv import Base,FileSource,Location,Parameter,Unit,TimeSeries,TimeSeriesValuesAndFlags,Flags
-from ts_helpders.ts_helpders_nobv import establishconnection, read_config, loadfilesource,location,sparameter,sserieskey,sflag,dateto_integer,convertlttodate, stimestep
+from orm_timeseries.orm_timeseries_nobv import (
+    Base,
+    FileSource,
+    Location,
+    Parameter,
+    Unit,
+    TimeSeries,
+    TimeSeriesValuesAndFlags,
+    Flags,
+)
+from ts_helpers.ts_helpers_nobv import (
+    establishconnection,
+    read_config,
+    loadfilesource,
+    location,
+    sparameter,
+    sserieskey,
+    sflag,
+    dateto_integer,
+    convertlttodate,
+    stimestep,
+)
 
 
 def read_config(af):
@@ -61,15 +81,19 @@ def read_config(af):
     cf.read(af)
     return cf
 
+
 def latest_entry(skey):
-    """function to find the lastest timestep entry per skey. 
+    """function to find the lastest timestep entry per skey.
     input = skey
     output = pandas df containing either none or a date"""
-    stmt="""select max(datetime) from nobv_timeseries.timeseriesvaluesandflags
-        where timeserieskey={s};""".format(s=skey)
+    stmt = """select max(datetime) from nobv_timeseries.timeseriesvaluesandflags
+        where timeserieskey={s};""".format(
+        s=skey
+    )
     r = engine.execute(stmt).fetchall()[0][0]
-    r=pd.to_datetime(r) 
-    return r 
+    r = pd.to_datetime(r)
+    return r
+
 
 prefixes = [">", "#", "*", "$"]
 dntusecol = ["mex", "chflysi", "mexb"]
@@ -122,6 +146,7 @@ def skiprows(fname):
                 break
     return skiprows, columnnames, xycols, datum
 
+
 def extract_info_from_text_file(filename):
     """
     Reads a text file, extracts information from lines starting with "#",
@@ -149,23 +174,28 @@ def extract_info_from_text_file(filename):
     df = pd.DataFrame([data])
     return df
 
+
 def find_locationkey():
-    #find the max locationkey which is currently stored in the database
-    stmt="""select max(locationkey) from nobv_timeseries.location;"""
+    # find the max locationkey which is currently stored in the database
+    stmt = """select max(locationkey) from nobv_timeseries.location;"""
     r = engine.execute(stmt).fetchall()[0][0]
-    return r 
+    return r
+
 
 def find_if_stored(name):
-    #find the max locationkey which is currently stored in the database
+    # find the max locationkey which is currently stored in the database
     try:
-        stmt="""select locationkey from nobv_timeseries.location
-        where name = '{n}';""".format(n=name)
+        stmt = """select locationkey from nobv_timeseries.location
+        where name = '{n}';""".format(
+            n=name
+        )
         r = engine.execute(stmt).fetchall()[0][0]
-        return r, True #mean yes / True it is stored
+        return r, True  # mean yes / True it is stored
     except:
         return False
 
-#TODO assign primary key to the location_metadata table (well_id)
+
+# TODO assign primary key to the location_metadata table (well_id)
 
 # set reference to config file
 local = False
@@ -173,160 +203,252 @@ if local:
     fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_local_somers.txt"
 else:
     fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_online_qsomers.txt"
-session,engine = establishconnection(fc)
+session, engine = establishconnection(fc)
 
-root = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\NOBV'
+root = r"P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\NOBV"
 
-#assigning parameters, either grondwaterstand or slootwaterpeil
-#zoetwaterstijghoogtes
-pkeygwm =sparameter(fc,'GWM', 'Grondwatermeetpunt',['m-NAP','meter NAP'],'Grondwatermeetpunt')
-pkeyswm = sparameter(fc,'SWM','Slootwatermeetpunt',['m-NAP','meter NAP'],'Slootwatermeetpunt')
+# assigning parameters, either grondwaterstand or slootwaterpeil
+# zoetwaterstijghoogtes
+pkeygwm = sparameter(
+    fc, "GWM", "Grondwatermeetpunt", ["m-NAP", "meter NAP"], "Grondwatermeetpunt"
+)
+pkeyswm = sparameter(
+    fc, "SWM", "Slootwatermeetpunt", ["m-NAP", "meter NAP"], "Slootwatermeetpunt"
+)
 
-tstkeye = stimestep(session,'nonequidistant','')
-#%%
-flagkeygwm=sflag(fc,'Grondwatermeetpuntt-ruwe data', 'Grondwatermeetpunt-ruwe data')
-flagkeyswm=sflag(fc,'Slootwatermeetpunt-ruwe data', 'Slootwatermeetpunt-ruwe data')
+tstkeye = stimestep(session, "nonequidistant", "")
+# %%
+flagkeygwm = sflag(fc, "Grondwatermeetpuntt-ruwe data", "Grondwatermeetpunt-ruwe data")
+flagkeyswm = sflag(fc, "Slootwatermeetpunt-ruwe data", "Slootwatermeetpunt-ruwe data")
 
 # %%
 # Example usage:
-cols_loctable=['naam_meetpunt', 'x-coor', 'y-coor','top filter (m-mv)','onderkant filter (m-mv)','maaiveld (m NAP)']
-cols_metatable=['slootafstand (m)', 'zomer streefpeil (m NAP)',
-       'winter streefpeil (m NAP)', 
-       'greppelafstand (m)', 'greppeldiepte (m-mv)', 'WIS afstand (m)', 'WIS diepte (m-mv)']
+cols_loctable = [
+    "naam_meetpunt",
+    "x-coor",
+    "y-coor",
+    "top filter (m-mv)",
+    "onderkant filter (m-mv)",
+    "maaiveld (m NAP)",
+]
+cols_metatable = [
+    "slootafstand (m)",
+    "zomer streefpeil (m NAP)",
+    "winter streefpeil (m NAP)",
+    "greppelafstand (m)",
+    "greppeldiepte (m-mv)",
+    "WIS afstand (m)",
+    "WIS diepte (m-mv)",
+]
 
-new_loctabel = ['name', 'x', 'y', 'tubetop', 'tubebot', 'altitude_msl']
-new_loc_swm = [ 'name', 'x', 'y']
-timeseries = ['datetime','scalarvalue']                                    
+new_loctabel = ["name", "x", "y", "tubetop", "tubebot", "altitude_msl"]
+new_loc_swm = ["name", "x", "y"]
+timeseries = ["datetime", "scalarvalue"]
 
-for root,subdirs,files in os.walk(root):    
+for root, subdirs, files in os.walk(root):
     for count, file in enumerate(files):
         if file.lower().endswith(".txt"):
-            name=os.path.basename(file).split("_", 1)[1].rsplit('.',1)[0]
+            name = os.path.basename(file).split("_", 1)[1].rsplit(".", 1)[0]
             print(name)
-            data=os.path.basename(file).split("_", 1)[0] #find in name it is GWM or SWM
-            nrrows, colnames, xycols, datum = skiprows(os.path.join(root,file))
-            
-            fskey = loadfilesource(os.path.join(root,file),fc,f"{name}_{data}")
+            data = os.path.basename(file).split("_", 1)[
+                0
+            ]  # find in name it is GWM or SWM
+            nrrows, colnames, xycols, datum = skiprows(os.path.join(root, file))
+
+            fskey = loadfilesource(os.path.join(root, file), fc, f"{name}_{data}")
             # need to update part in the location table and another part in the location_metadata
-            
-            dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
+
+            dfx = pd.read_csv(
+                os.path.join(root, file),
+                delimiter=";",
+                skiprows=nrrows,
+                header=None,
+                names=colnames,
+            )
             # print(dfx)
-            if data == 'SWM':
-                df= extract_info_from_text_file(os.path.join(root,file))
+            if data == "SWM":
+                df = extract_info_from_text_file(os.path.join(root, file))
                 # print(df.columns)
                 df.columns = new_loc_swm
-                #assign a new locationkey
-                #first find if location is already stored in the database, if not stored, the following code will be run
+                # assign a new locationkey
+                # first find if location is already stored in the database, if not stored, the following code will be run
                 y = find_if_stored(name)
                 # print('Not Updating:', name)
-                if y == False: 
-                    print('Updating:', name)
-                    x= find_locationkey()
+                if y == False:
+                    print("Updating:", name)
+                    x = find_locationkey()
                     if x is None:
-                        locationkey=0
+                        locationkey = 0
                     else:
-                        locationkey = x+1
-                    df['locationkey'] = locationkey
-                    df['epsgcode'] = 28992
-                    df['filesourcekey']=fskey[0][0] 
+                        locationkey = x + 1
+                    df["locationkey"] = locationkey
+                    df["epsgcode"] = 28992
+                    df["filesourcekey"] = fskey[0][0]
 
-                    df.to_sql('location',engine,schema='nobv_timeseries',index=None,if_exists='append')
-                    stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='nobv_timeseries',t='location')
+                    df.to_sql(
+                        "location",
+                        engine,
+                        schema="nobv_timeseries",
+                        index=None,
+                        if_exists="append",
+                    )
+                    stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(
+                        s="nobv_timeseries", t="location"
+                    )
                     engine.execute(stmt)
 
-                    skeyz = sserieskey(fc, pkeyswm, locationkey, fskey[0],timestep='nonequidistant')
+                    skeyz = sserieskey(
+                        fc, pkeyswm, locationkey, fskey[0], timestep="nonequidistant"
+                    )
                     flag = flagkeyswm
 
-                    dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
+                    dfx = pd.read_csv(
+                        os.path.join(root, file),
+                        delimiter=";",
+                        skiprows=nrrows,
+                        header=None,
+                        names=colnames,
+                    )
                     dfx.columns = timeseries
-                    try: 
-                        dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y')
+                    try:
+                        dfx["datetime"] = pd.to_datetime(
+                            dfx["datetime"], format="%d-%m-%Y"
+                        )
                     except:
-                        dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y %H:%M:%S')
-                    dfx=dfx.dropna() 
+                        dfx["datetime"] = pd.to_datetime(
+                            dfx["datetime"], format="%d-%m-%Y %H:%M:%S"
+                        )
+                    dfx = dfx.dropna()
                     print(dfx)
 
-                    r=latest_entry(skeyz)
+                    r = latest_entry(skeyz)
 
-                    if r!=dfx['datetime'].iloc[-1]:
-                        dfx['timeserieskey'] = skeyz 
-                        dfx['flags' ] = flag
-                        dfx.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='nobv_timeseries')
+                    if r != dfx["datetime"].iloc[-1]:
+                        dfx["timeserieskey"] = skeyz
+                        dfx["flags"] = flag
+                        dfx.to_sql(
+                            "timeseriesvaluesandflags",
+                            engine,
+                            index=False,
+                            if_exists="append",
+                            schema="nobv_timeseries",
+                        )
                     else:
-                        print('not updating')
-            elif data == 'GWM':
-                df= extract_info_from_text_file(os.path.join(root,file))
+                        print("not updating")
+            elif data == "GWM":
+                df = extract_info_from_text_file(os.path.join(root, file))
                 locationtable = df[cols_loctable]
                 locationtable.columns = new_loctabel
 
-                y = find_if_stored(name) #check if stored in DB, if not stored, the following code will be run
-                if y == False: 
-                    print('Updating:', name)
-                    x= find_locationkey()
+                y = find_if_stored(
+                    name
+                )  # check if stored in DB, if not stored, the following code will be run
+                if y == False:
+                    print("Updating:", name)
+                    x = find_locationkey()
                     if x is None:
-                        locationkey=0
+                        locationkey = 0
                     else:
-                        locationkey = x+1 
-                    #add epsg and add locationkey
-                    locationtable['locationkey'] = locationkey
-                    locationtable['epsgcode'] = 28992
-                    locationtable['filesourcekey']=fskey[0][0] 
+                        locationkey = x + 1
+                    # add epsg and add locationkey
+                    locationtable["locationkey"] = locationkey
+                    locationtable["epsgcode"] = 28992
+                    locationtable["filesourcekey"] = fskey[0][0]
 
-                    locationtable.to_sql('location',engine,schema='nobv_timeseries',index=None,if_exists='append')
-                    stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(s='nobv_timeseries',t='location')
+                    locationtable.to_sql(
+                        "location",
+                        engine,
+                        schema="nobv_timeseries",
+                        index=None,
+                        if_exists="append",
+                    )
+                    stmt = """update {s}.{t} set geom = st_setsrid(st_point(x,y),epsgcode) where geom is null;""".format(
+                        s="nobv_timeseries", t="location"
+                    )
                     engine.execute(stmt)
 
                     metadata = df[cols_metatable]
-                    
-                    metadata = metadata.rename(columns={'slootafstand (m)': 'parcel_width_m', 
-                                                        'greppelafstand (m)':'trenches',
-                                                        'greppeldiepte (m-mv)':'trench_depth_m_sfl',
-                    'zomer streefpeil (m NAP)': 'summer_stage_m_nap', 
-                    'winter streefpeil (m NAP)':'winter_stage_m_nap',
-                    'WIS afstand (m)': 'wis_distance_m',
-                    'WIS diepte (m-mv)': 'wis_depth_m_sfl'})
-                    
-                    convert_dict = {'parcel_width_m': float,
-                                            'summer_stage_m_nap': float,
-                                            'winter_stage_m_nap': float,
-                                            'wis_distance_m': float,
-                                            'wis_depth_m_sfl': float
-                                            }
 
-                    metadata = metadata.astype(convert_dict)
-                    
-                    metadata = metadata.replace('nan', np.nan)
-                    metadata['well_id'] = locationkey
-                    metadata['trenches'] = metadata['trenches'].apply(lambda x: [x])
+                    metadata = metadata.rename(
+                        columns={
+                            "slootafstand (m)": "parcel_width_m",
+                            "greppelafstand (m)": "trenches",
+                            "greppeldiepte (m-mv)": "trench_depth_m_sfl",
+                            "zomer streefpeil (m NAP)": "summer_stage_m_nap",
+                            "winter streefpeil (m NAP)": "winter_stage_m_nap",
+                            "WIS afstand (m)": "wis_distance_m",
+                            "WIS diepte (m-mv)": "wis_depth_m_sfl",
+                        }
+                    )
 
-                    dtype = {
-                        'trenches': ARRAY(DOUBLE_PRECISION) #making sure trenches is exported as a double precision array
+                    convert_dict = {
+                        "parcel_width_m": float,
+                        "summer_stage_m_nap": float,
+                        "winter_stage_m_nap": float,
+                        "wis_distance_m": float,
+                        "wis_depth_m_sfl": float,
                     }
 
-                    metadata.to_sql('location_metadata2',engine,schema='nobv_timeseries',index=None,if_exists='append', dtype=dtype)
+                    metadata = metadata.astype(convert_dict)
 
-                    skeyz = sserieskey(fc, pkeygwm, locationkey, fskey[0],timestep='nonequidistant')
+                    metadata = metadata.replace("nan", np.nan)
+                    metadata["well_id"] = locationkey
+                    metadata["trenches"] = metadata["trenches"].apply(lambda x: [x])
+
+                    dtype = {
+                        "trenches": ARRAY(
+                            DOUBLE_PRECISION
+                        )  # making sure trenches is exported as a double precision array
+                    }
+
+                    metadata.to_sql(
+                        "location_metadata2",
+                        engine,
+                        schema="nobv_timeseries",
+                        index=None,
+                        if_exists="append",
+                        dtype=dtype,
+                    )
+
+                    skeyz = sserieskey(
+                        fc, pkeygwm, locationkey, fskey[0], timestep="nonequidistant"
+                    )
                     flag = flagkeygwm
 
-                    dfx = pd.read_csv(os.path.join(root,file), delimiter=';', skiprows=nrrows, header = None, names = colnames)
+                    dfx = pd.read_csv(
+                        os.path.join(root, file),
+                        delimiter=";",
+                        skiprows=nrrows,
+                        header=None,
+                        names=colnames,
+                    )
                     dfx.columns = timeseries
-                    try: 
-                        dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y')
+                    try:
+                        dfx["datetime"] = pd.to_datetime(
+                            dfx["datetime"], format="%d-%m-%Y"
+                        )
                     except:
-                        dfx['datetime'] = pd.to_datetime(dfx['datetime'], format='%d-%m-%Y %H:%M:%S')
-                    dfx=dfx.dropna() 
+                        dfx["datetime"] = pd.to_datetime(
+                            dfx["datetime"], format="%d-%m-%Y %H:%M:%S"
+                        )
+                    dfx = dfx.dropna()
                     print(dfx)
 
-                    r=latest_entry(skeyz)
+                    r = latest_entry(skeyz)
 
-                    if r!=dfx['datetime'].iloc[-1]:
-                        dfx['timeserieskey'] = skeyz 
-                        dfx['flags' ] = flag
-                        dfx.to_sql('timeseriesvaluesandflags',engine,index=False,if_exists='append',schema='nobv_timeseries')
+                    if r != dfx["datetime"].iloc[-1]:
+                        dfx["timeserieskey"] = skeyz
+                        dfx["flags"] = flag
+                        dfx.to_sql(
+                            "timeseriesvaluesandflags",
+                            engine,
+                            index=False,
+                            if_exists="append",
+                            schema="nobv_timeseries",
+                        )
                     else:
-                        print('not updating')
-
+                        print("not updating")
 
                 else:
-                    print('NOT SWM or GWM:', name)
+                    print("NOT SWM or GWM:", name)
 # %%

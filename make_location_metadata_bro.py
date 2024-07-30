@@ -25,10 +25,11 @@
 # your own tools.
 
 ## some helper functions
-from ts_helpders import establishconnection, testconnection
-from db_helpders import create_location_metadatatable
+from ts_helpers.ts_helpers import establishconnection, testconnection
+from db_helpers import create_location_metadatatable
 import assign_soiltype
 import assign_parcelvalues
+import assign_ahn4
 
 # globals
 cf = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_online_qsomers.txt"
@@ -83,6 +84,7 @@ for i in range(len(locs)):
         print(f"Error: {e}. {lockey}.")
 
 # 3 assign ahn4 (needs some small changes to get it working)
+assign_ahn4.assign_ahn(engine, tbl)
 
 # 4 assign soiltype
 assign_soiltype.assign_soiltype(engine, tbl)
