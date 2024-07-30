@@ -30,6 +30,7 @@ from db_helpers import create_location_metadatatable
 import assign_soiltype
 import assign_parcelvalues
 import assign_ahn4
+import assign_top10
 
 # globals
 cf = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_online_qsomers.txt"
@@ -43,8 +44,9 @@ session, engine = establishconnection(cf)
 # step 3. assign ahn4
 # step 4. assign soiltype
 # step 5. assign parcelvalues
-# step 6. assing top10
-# step 7. compile info to location.metadata table
+# step 6. assign top10
+# step 7. assign timeseriesstats (min, max and nr. records data)
+# step 8. compile info to location.metadata table
 
 # 1 setup metadata table (tbl should be new name)
 tbl = "bro_timeseries.location_metadata2"
@@ -84,10 +86,14 @@ for i in range(len(locs)):
         print(f"Error: {e}. {lockey}.")
 
 # 3 assign ahn4 (needs some small changes to get it working)
-assign_ahn4.assign_ahn(engine, tbl)
+# need of geometry column for conversion to Lat-long, it is expected that geom is in 28992
+assign_ahn4.assign_ahn(engine, "bro_timeseries.location", tbl)
 
 # 4 assign soiltype
 assign_soiltype.assign_soiltype(engine, tbl)
 
 # 5 assign parcelvalues
 assign_parcelvalues.assign_parcelvalues(engine, tbl)
+
+# 6 assign_top10
+assign_top10.assign_t10(engine, "bro_timeseries.location", tbl)

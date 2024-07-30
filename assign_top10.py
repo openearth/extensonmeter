@@ -28,15 +28,7 @@
 # - assignment distance from well to various entities of top10
 
 ## various helper functions
-from ts_helpers.ts_helpers import establishconnection, testconnection
 from db_helpers import preptable
-
-
-# setup connection
-def setupconnecton(cf):
-    session, engine = establishconnection(cf)
-    return engine
-
 
 # for every location the distance to ditch, road and centr of railroad is derived from top 10 data
 # bear in mind, this is a very time costly operation, takes a long time (well, up to an hour)!
@@ -46,22 +38,22 @@ dcttop10["top10.top10nl_spooras"] = "distance_to_railroad_m"
 dcttop10["top10.top10nl_wegdeel_hartlijn"] = "distance_to_road_m"
 
 
-def assign_t10(cf, tbl):
+def assign_t10(engine, tbl, metatable):
     """Update metadata table with the top10 by performing a spatial query on the soiltype database
 
     Args:
         cf  (string): link to connection file with credentials
         tbl (string): schema.table name with locations that act as basedata.
+        metatable (string): schema.table name with metadata for each location
 
     Returns:
         ...
     """
-    engine = setupconnecton(cf)
     for t10 in dcttop10.keys():
         c = dcttop10[t10]
         print("retrieving distances between points from ", tbl, " for ", t10)
-        nwtbl = tbl + "_metadata"
-        preptable(nwtbl, c, "double precision")
+        nwtbl = metatable
+        preptable(engine, nwtbl, c, "double precision")
         strsql = f"""SELECT locationkey 
                 FROM {tbl}"""
         locs = engine.execute(strsql).fetchall()
@@ -80,6 +72,6 @@ def assign_t10(cf, tbl):
                         VALUES ({lockey},{vals[0][1]})
                         ON CONFLICT(well_id)
                         DO UPDATE SET
-                        {c} = {vals[0][1]}"""
+                        {c} = ROUND({vals[0][1]}::numeric,2)"""
             engine.execute(strsql)
-    engine.dispose()
+    return

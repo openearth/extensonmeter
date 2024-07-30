@@ -48,6 +48,7 @@ from ts_helpers.ts_helpers import establishconnection, testconnection
 # globals
 geoserver_url = "https://service.pdok.nl/rws/ahn/wcs/v1_0"
 layername = "dtm_05m"
+tmpdir = r"c:\temp\somers"
 
 # dictionary of tables to check for data in column altitude_msl
 # key = tablename, value = columnname
@@ -146,33 +147,33 @@ def getmv4point(x, y):
     xend = x + 0.0001
     yst = y - 0.0001
     yend = y + 0.0001
-
-    arf = r"C:\projecten\temp\ding.tif"
-    data = cut_wcs(xst, yst, xend, yend, layername, geoserver_url, arf, crs=4326)
+    arf = os.path.join(tmpdir, "ahn4_tmp.tif")
+    cut_wcs(xst, yst, xend, yend, layername, geoserver_url, arf, crs=4326)
     araster = rasterio.open(arf)
     row, col = araster.index(x, y)
     val = araster.read(1)[row, col]
     araster.close()
-    os.unlink(arf)
     return val
 
 
 # Get locations from database
 # convert xy to lon lat --> via query :)
-def assign_ahn(engine, tbl):
-    """Update metadata table with the AHN4 value for the specific cell
+def assign_ahn(engine, tbl, metadatatable):
+    """Update metadata table with the AHN4 value for the specific cell. Note, this function loops over all the
+       locations, if need be, you could either create a new temp table with the selection necessary or call getmv4point(x,y).
+       Bear in mind, x y should be in WGS84. For the latter case, you use only line 191-202
 
     Args:
         cf  (string): link to connection file with credentials
-        tbl (string): schema.table name with locations that act as basedata.
-
+        tbl (string): schema.table name with locations that act as basedata, this should have a geometry column.
+        metadatatable (string): target table that stores the derived information
     Returns:
         ...
     """
     srid = getsrid(engine, tbl)
     if srid != None:
         # create table location_mv, with ID and MV based on AHN
-        nwtbl = tbl.replace("location", "location_metadata")
+        nwtbl = metadatatable
         strsql = f"create table if not exists {nwtbl} (well_id integer primary key, surface_level_ahn4_m_nap double precision)"
         engine.execute(strsql)
         print("table created", nwtbl)
@@ -200,4 +201,10 @@ def assign_ahn(engine, tbl):
                             surface_level_ahn4_m_nap = {mv}"""  # add AHN values as surface_level_m_nap
                 engine.execute(strsql)
             except:
-                print("not updating AHN")
+                print("not updating AHN for lockey ", lockey)
+
+
+def test():
+    cf = r"C:\develop\extensometer\connection_online.txt"
+    session, engine = establishconnection(cf)
+    tbl = "bro_timeseries.location"

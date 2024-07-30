@@ -33,29 +33,11 @@ import os
 import pandas as pd
 
 # import custum functions
-from ts_helpers import establishconnection, testconnection
-
-# globals
-# cf = r"C:\develop\extensometer\connection_online.txt"
-cf = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_online_qsomers.txt"
-session, engine = establishconnection(cf)
-con = engine.connect()
-
-if not testconnection(engine):
-    print("Connecting to database failed")
+from ts_helpers.ts_helpers import establishconnection, testconnection
 
 
-dcttable = {}
-dcttable["bro_timeseries.location"] = "placeholder"
-dcttable["hdsr_timeseries.location"] = "placeholder"
-dcttable["hhnk_timeseries.location"] = "placeholder"
-dcttable["wskip_timeseries.location"] = "placeholder"
-dcttable["waterschappen_timeseries.location"] = "placeholder"  # handmetingen
-dcttable["nobv_timeseries.location"] = "placeholder"  # nobv handmatige bewerkingen data
-
-# todo ==> datetime as textformat
-nwtbl = "metadata_ongecontroleerd.gwm"
-for tbl in dcttable.keys():
+def derivetimeseriesstats(engine, tbl, nwtbl):
+    con = engine.connect()
     n = tbl.split("_")[0]
     print("retrieve time window information for", n)
 
@@ -71,3 +53,43 @@ for tbl in dcttable.keys():
     for well_id, row in res.iterrows():
         strsql = f"""update {nwtbl} set start_date = '{row['mindate']}', end_date = '{row['maxdate']}' where well_id = '{n}_{well_id}'"""
         engine.execute(strsql)
+
+
+def deprecated():
+    # globals
+    # cf = r"C:\develop\extensometer\connection_online.txt"
+    cf = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_online_qsomers.txt"
+    session, engine = establishconnection(cf)
+    con = engine.connect()
+
+    if not testconnection(engine):
+        print("Connecting to database failed")
+
+    dcttable = {}
+    dcttable["bro_timeseries.location"] = "placeholder"
+    dcttable["hdsr_timeseries.location"] = "placeholder"
+    dcttable["hhnk_timeseries.location"] = "placeholder"
+    dcttable["wskip_timeseries.location"] = "placeholder"
+    dcttable["waterschappen_timeseries.location"] = "placeholder"  # handmetingen
+    dcttable["nobv_timeseries.location"] = (
+        "placeholder"  # nobv handmatige bewerkingen data
+    )
+
+    # todo ==> datetime as textformat
+    nwtbl = "metadata_ongecontroleerd.gwm"
+    for tbl in dcttable.keys():
+        n = tbl.split("_")[0]
+        print("retrieve time window information for", n)
+
+        strsql = f"""select well_id, min(datetime) as mindate,max(datetime) as maxdate from 
+        {n}_timeseries.location l
+        JOIN {n}_timeseries.location_metadata mt on mt.well_id = l.locationkey
+        JOIN {n}_timeseries.timeseries t on t.locationkey = l.locationkey
+        JOIN {n}_timeseries.parameter p on p.parameterkey = t.parameterkey
+        JOIN {n}_timeseries.timeseriesvaluesandflags tsv on tsv.timeserieskey = t.timeserieskey
+        group by well_id
+        """
+        res = pd.read_sql(strsql, con)
+        for well_id, row in res.iterrows():
+            strsql = f"""update {nwtbl} set start_date = '{row['mindate']}', end_date = '{row['maxdate']}' where well_id = '{n}_{well_id}'"""
+            engine.execute(strsql)

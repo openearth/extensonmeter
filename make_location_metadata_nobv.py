@@ -29,6 +29,8 @@ from ts_helpers.ts_helpers import establishconnection, testconnection
 from db_helpers import create_location_metadatatable
 import assign_soiltype
 import assign_parcelvalues
+import assign_ahn4
+import assign_top10
 
 # globals
 cf = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_online_qsomers.txt"
@@ -102,6 +104,8 @@ for i in range(len(rename_cols)):
     engine.execute(strsql)
 
 # 3 assign ahn4 (needs some small changes to get it working)
+# need of geometry column for conversion to Lat-long, it is expected that geom is in 28992
+assign_ahn4.assign_ahn(engine, "nobv_timeseries.location", tbl)
 
 # 4 assign soiltype
 assign_soiltype.assign_soiltype(engine, tbl)

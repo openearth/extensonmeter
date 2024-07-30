@@ -36,12 +36,8 @@ import os
 from ts_helpers.ts_helpers import establishconnection, testconnection
 from db_helpers import preptable
 
+
 # ----- set various generic (location dependend) data in metadata table (xy from well)
-# TODO check if this code is still needed? gives errors in its current state
-# and does not seme to add to the laction_metadata tables, may be left over code??
-# Turn the code off for now
-
-
 def assign_parcelvalues(engine, tbl):
     """Update metadata table with the input_parcels by performing a spatial query
 
@@ -54,8 +50,8 @@ def assign_parcelvalues(engine, tbl):
     """
     loctable = ".".join([tbl.split(".")[0], tbl.split(".")[1].split("_")[0]])
 
-    strsql = f"""select l.well_id, 
-        perceel_id, 
+    strsql = f"""select 
+        l.well_id, 
         ip.aan_id, 
         type_peilb, 
         ROUND(zomerpeil_::numeric,2), 
@@ -76,8 +72,10 @@ def assign_parcelvalues(engine, tbl):
         sloot_afst = locs[i][5]
         x_coord = locs[i][6]
         y_coord = locs[i][7]
+
         try:
-            strsql = f"""insert into {tbl} (well_id, 
+            strsqlu = f"""insert into {tbl} (
+                            well_id,
                             aan_id, 
                             parcel_type,
                             x_centre_parcel,
@@ -85,18 +83,32 @@ def assign_parcelvalues(engine, tbl):
                             parcel_width_m,
                             summer_stage_m_nap,
                             winter_stage_m_nap) 
-                        VALUES ({lockey},{x},{y})
+                        VALUES ({lockey},
+                               '{aan_id}',
+                               '{type_peilb}', 
+                                {x_coord},
+                                {y_coord},
+                                {sloot_afst},
+                                {zomerpeil_},
+                                {winterpeil})
                         ON CONFLICT(well_id)
-                        DO UPDATE SET
-                            aan_id = {aan_id}, 
-                            parcel_type = {type_peilb},
+                        DO UPDATE SET   
+                            aan_id = '{aan_id}', 
+                            parcel_type = '{type_peilb}',
                             x_centre_parcel = {x_coord},
                             y_centre_parcel = {y_coord},
                             parcel_width_m = {sloot_afst},
                             summer_stage_m_nap = {zomerpeil_},
-                            winter_stage_m_nap = {winterpeil}"""
-            engine.execute(strsql)
+                            winter_stage_m_nap = {winterpeil}""".replace(
+                "None", "Null"
+            )
+            engine.execute(strsqlu)
         except Exception as e:
             # Handle the conflict (e.g., log the error or ignore it)
             print(f"Error: {e}. {lockey}.")
-    engine.dispose()
+
+
+def test():
+    cf = r"C:\develop\extensometer\connection_online.txt"
+    session, engine = establishconnection(cf)
+    tbl = "bro_timeseries.location_metadata2"
