@@ -50,8 +50,8 @@ session, engine = establishconnection(cf)
 # step 8. compile info to location.metadata table
 
 # 1 setup metadata table (tbl should be new name)
-tbl = "bro_timeseries.location"
-nwtbl = "bro_timeseries.location_metadata2"
+tbl = "wskip_timeseries.location"
+nwtbl = "wskip_timeseries.location_metadata2"
 create_location_metadatatable(cf, nwtbl)
 
 # 2 BRO specific

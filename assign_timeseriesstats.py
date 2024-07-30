@@ -36,23 +36,34 @@ import pandas as pd
 from ts_helpers.ts_helpers import establishconnection, testconnection
 
 
-def derivetimeseriesstats(engine, tbl, nwtbl):
+def settimeseriesstats(engine, tbl, nwtbl):
     con = engine.connect()
     n = tbl.split("_")[0]
     print("retrieve time window information for", n)
 
-    strsql = f"""select well_id, min(datetime) as mindate,max(datetime) as maxdate from 
-    {n}_timeseries.location l
-    JOIN {n}_timeseries.location_metadata mt on mt.well_id = l.locationkey
-    JOIN {n}_timeseries.timeseries t on t.locationkey = l.locationkey
-    JOIN {n}_timeseries.parameter p on p.parameterkey = t.parameterkey
-    JOIN {n}_timeseries.timeseriesvaluesandflags tsv on tsv.timeserieskey = t.timeserieskey
+    strsql = f"""select well_id, min(datetime) as mindate,max(datetime) as maxdate, count(*) as nrecords
+      from {n}_timeseries.location l
+      JOIN {nwtbl} mt on mt.well_id = l.locationkey
+      JOIN {n}_timeseries.timeseries t on t.locationkey = l.locationkey
+      JOIN {n}_timeseries.parameter p on p.parameterkey = t.parameterkey
+      JOIN {n}_timeseries.timeseriesvaluesandflags tsv on tsv.timeserieskey = t.timeserieskey
     group by well_id
     """
     res = pd.read_sql(strsql, con)
-    for well_id, row in res.iterrows():
-        strsql = f"""update {nwtbl} set start_date = '{row['mindate']}', end_date = '{row['maxdate']}' where well_id = '{n}_{well_id}'"""
+    for id, row in res.iterrows():
+        strsql = f"""update {nwtbl} set 
+                    start_date = '{row['mindate']}', 
+                    end_date = '{row['maxdate']}',
+                    records = {row['nrecords']} 
+                    where well_id = {row['well_id']}"""
         engine.execute(strsql)
+
+
+def test():
+    cf = r"C:\develop\extensometer\connection_online.txt"
+    session, engine = establishconnection(cf)
+    tbl = "bro_timeseries.location"
+    nwtbl = "bro_timeseries.location_metadata2"
 
 
 def deprecated():
