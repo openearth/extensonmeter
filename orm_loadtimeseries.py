@@ -41,7 +41,7 @@ PostgreSQL/PostGIS
 from sqlalchemy import create_engine
 
 ## Declare a Mapping to the database
-from orm_timeseries_waterschappen import Base
+from orm_timeseries.orm_timeseries_waterschappen import Base
 
 def checkschema(engine,schema):
     strsql = 'create schema if not exists {s}'.format(s=schema)

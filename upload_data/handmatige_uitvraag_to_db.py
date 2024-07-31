@@ -35,15 +35,24 @@ import configparser
 import glob
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
+# Get the directory of the current script
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Construct the path to the root of the project
+project_root = os.path.abspath(os.path.join(current_dir, '..'))
+
+# Add the project root to the PYTHONPATH
+sys.path.append(project_root)
+
 
 # third party packages
 from sqlalchemy.sql.expression import update
 from sqlalchemy import exc, func, ARRAY, Float
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION
-
 # local procedures
-from orm_timeseries.orm_timeseries_waterschappen import (
+from orm_timeseries.orm_timeseries_waterschappen  import (
     Base,
     FileSource,
     Location,
@@ -193,7 +202,7 @@ def find_if_stored(name):
 
 
 # set reference to config file
-local = True
+local = False
 if local:
     fc = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_local_somers.txt"
 else:
@@ -202,15 +211,16 @@ session, engine = establishconnection(fc)
 
 # manual input, give path to the root folders to loop over
 path_1 = r"P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Rivierenland"
-# path_2 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Delfland\SOMERS_DATA' #heel veel data maar bijna geen locatie komt terug voor de analyse
+path_2 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Delfland\SOMERS_DATA' #heel veel data maar bijna geen locatie komt terug voor de analyse
 path_3 = r"P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\HDSR\geschikte_data"
-path_4 = r"P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\AGV"  # gebruikt spaties als sep in de GWM maar niet in de SWM
+path_4 = r"P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\AGV\bewerkt"  # gebruikt spaties als sep in de GWM maar niet in de SWM
 # path_5 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\HunzeenAas\bewerkt' #datum tijd notatie klopt nog niet
 path_6 = r"P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Wetterskip"  # (string replace has to be on to work with this data)
 
 # Create a list of paths
 # paths = [path_1, path_2]
-paths = [path_6]
+paths = [path_2]
+wb_name = 'Delfland'
 
 # assigning parameters, either grondwaterstand or slootwaterpeil
 # zoetwaterstijghoogtes
@@ -257,7 +267,7 @@ for root in paths:
         for count, file in enumerate(files):
             if file.lower().endswith(".txt"):
                 name = os.path.basename(file).split("_", 1)[1].rsplit(".", 1)[0]
-                wb_name = os.path.basename(root)
+                # wb_name = os.path.basename(root)
                 name = name.replace("[", "").replace("]", "")
                 name = wb_name + "_" + name
                 data = os.path.basename(file).split("_", 1)[
@@ -357,18 +367,21 @@ for root in paths:
                     # print(duplicate_rows)
                     dfx = dfx.drop_duplicates()
                     print(r, skeyz)
-                    if r != dfx["datetime"].iloc[-1]:
-                        dfx["timeserieskey"] = skeyz
-                        dfx["flags"] = flag
-                        dfx.to_sql(
-                            "timeseriesvaluesandflags",
-                            engine,
-                            index=False,
-                            if_exists="append",
-                            schema="waterschappen_timeseries",
-                        )
-                    else:
-                        print("not updating")
+                    try: 
+                        if r != dfx["datetime"].iloc[-1]:
+                            dfx["timeserieskey"] = skeyz
+                            dfx["flags"] = flag
+                            dfx.to_sql(
+                                "timeseriesvaluesandflags",
+                                engine,
+                                index=False,
+                                if_exists="append",
+                                schema="waterschappen_timeseries",
+                            )
+                        else:
+                            print("not updating")
+                    except:
+                        print('empty df')
 
                 elif data == "GWM":
                     df = extract_info_from_text_file(os.path.join(root, file))
@@ -435,7 +448,7 @@ for root in paths:
                                 DOUBLE_PRECISION
                             )  # making sure trenches is exported as a double precision array
                         }
-                        # metadata.to_sql('location_metadata',engine,schema='waterschappen_timeseries',index=None,if_exists='append', dtype=dtype)
+                        metadata.to_sql('location_metadata2',engine,schema='waterschappen_timeseries',index=None,if_exists='append', dtype=dtype)
 
                     skeyz = sserieskey(
                         fc, pkeygwm, locationkey, fskey[0], timestep="nonequidistant"
@@ -477,19 +490,22 @@ for root in paths:
                     dfx.sort_values(by=["datetime"], inplace=True)
 
                     print(r, skeyz)
-
-                    if r != dfx["datetime"].iloc[-1]:
-                        dfx["timeserieskey"] = skeyz
-                        dfx["flags"] = flag
-                        dfx.to_sql(
-                            "timeseriesvaluesandflags",
-                            engine,
-                            index=False,
-                            if_exists="append",
-                            schema="waterschappen_timeseries",
-                        )
-                    else:
-                        print("not updating")
+                    
+                    try:
+                        if r != dfx["datetime"].iloc[-1]:
+                            dfx["timeserieskey"] = skeyz
+                            dfx["flags"] = flag
+                            dfx.to_sql(
+                                "timeseriesvaluesandflags",
+                                engine,
+                                index=False,
+                                if_exists="append",
+                                schema="waterschappen_timeseries",
+                            )
+                        else:
+                            print("not updating")
+                    except:
+                        print('empty df')
 
                 else:
                     print("NOT SWM or GWM:", name)
