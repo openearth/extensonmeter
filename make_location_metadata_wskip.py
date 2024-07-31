@@ -54,18 +54,17 @@ tbl = "wskip_timeseries.location"
 nwtbl = "wskip_timeseries.location_metadata2"
 create_location_metadatatable(cf, nwtbl)
 
-# 2 BRO specific
+# 2 WSKIP specific
 # this part is different for every source, since the data is not exactly the same
-# for BRO data, all values are with respect to reference level (m-NAP), while model expects m-mv
+# for WSKIP data, there is only z value available, that is the surfacelevel.
 strsql = """
 SELECT 
 	locationkey,
 	st_x(geom),
 	st_y(geom),
-	z as z_surface_level_m_nap,
-	ROUND((z-tubetop)::numeric,2) as top_screen_m_mv,
-	ROUND((z-tubebot)::numeric,2) as bot_screen_m_mv
-FROM bro_timeseries.location
+	ROUND((z)::numeric,2) as z_surface_level_m_nap,
+	ROUND((tubetop)::numeric,2) as top_screen_m_mv
+FROM wskip_timeseries.location
 order by locationkey
 """
 locs = engine.execute(strsql).fetchall()
@@ -75,13 +74,14 @@ for i in range(len(locs)):
     y = locs[i][2]
     z = locs[i][3]
     zt = locs[i][4]
-    zb = locs[i][5]
     try:
-        strsql = f"""insert into {nwtbl} (well_id, x_well,y_well,z_surface_level_m_nap,top_screen_m_mv,bot_screen_m_mv) 
-                    VALUES ({lockey},{x},{y}, {z}, {zt},{zb})
+        strsql = f"""insert into {nwtbl} (well_id, x_well,y_well,z_surface_level_m_nap,top_screen_m_mv) 
+                    VALUES ({lockey},{x},{y},{z},{zt})
                     ON CONFLICT(well_id)
                     DO UPDATE SET
-                    x_well = {x}, y_well = {y}, z_surface_level_m_nap = {z}, top_screen_m_mv = {zb}, bot_screen_m_mv = {zb}"""
+                    x_well = {x}, y_well = {y}, z_surface_level_m_nap = {z}, top_screen_m_mv = {zt}""".replace(
+            "None", "Null"
+        )
         engine.execute(strsql)
     except Exception as e:
         # Handle the conflict (e.g., log the error or ignore it)

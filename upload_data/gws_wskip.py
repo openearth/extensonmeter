@@ -33,28 +33,34 @@ Created on Tue Jul 19 12:05:14 2022
 
 """
 
-# TODO -- bear in mind that the target shema's are renamed!!!
-
-
 # base link is https://gis.wetterskipfryslan.nl/arcgis/rest/services/Grondwatersite_mpn/MapServer/1/query?outFields=*&orderByFields=MONSTERDATUM&f=json&where=TELEMETRIELOCATIEID%3D%27L6206%27+AND+MONSTERDATUM+%3E+date+%272021-8-2+00%3A00%3A00%27+
-
+import datetime
 import os
 import requests
 from datetime import datetime
 import pandas as pd
+from sqlalchemy import text
+from orm_timeseries.orm_timeseries import TimeSeriesValuesAndFlags as tsv
+from ts_helpers.ts_helpers import (
+    loadfilesource,
+    location,
+    establishconnection,
+    Location,
+)
+from ts_helpers.ts_helpers import sparameter, stimestep, sflag, sserieskey
 
-from orm_timeseries import TimeSeriesValuesAndFlags as tsv
-from ts_helpers import loadfilesource, location, establishconnection, Location
-from ts_helpers import sparameter, stimestep, sflag, sserieskey
-
+# globals
 local = False
 if local:
     fc = r"C:\develop\extensometer\localhost_connection.txt"
 else:
     fc = r"C:\develop\extensometer\connection_online.txt"
 
-mapserver_url = "https://gis.wetterskipfryslan.nl/arcgis/rest/services/Grondwatersite_mpn/MapServer/"
+# the connection to the database
 session, engine = establishconnection(fc)
+
+# the url of the main service where the locations can be downloaded from
+mapserver_url = "https://gis.wetterskipfryslan.nl/arcgis/rest/services/Grondwatersite_mpn/MapServer/"
 
 
 def procesdata(jsonrespons, fid):
@@ -205,7 +211,7 @@ def lastgwstage(engine, gwslocation, t, pid, fid):
     join wskip_timeseries.parameter p on p.parameterkey = ts.parameterkey
     join wskip_timeseries.filesource f on f.filesourcekey = ts.filesourcekey
     join wskip_timeseries.timeseriesvaluesandflags tsf on tsf.timeserieskey = ts.timeserieskey
-    where l.name = '{brolocation}_{t}' and f.filesourcekey = {fid} and p.parameterkey = {pid}
+    where l.name = '{gwslocation}_{t}' and f.filesourcekey = {fid} and p.parameterkey = {pid}
     """
     ld = engine.execute(strsql).fetchall()
     adate = ld[0][0]
@@ -214,7 +220,7 @@ def lastgwstage(engine, gwslocation, t, pid, fid):
     else:
         adate = adate + timedelta(hours=2)
         strdate = adate.strftime("%Y-%m-%d")
-        print(brolocation, strdate)
+        print(gwslocation, strdate)
     return strdate
 
 
@@ -229,6 +235,44 @@ def timestamp_to_datetime(timestamp):
         datetime: returns valid datetime object
     """
     return datetime.fromtimestamp(timestamp / 1000.0)
+
+
+# the website mentions the elevation (m-mv) where the observations are done, these observations
+# are retrieved from https://www.wetterskipfryslan.nl/kaarten/grondwaterstanden. Every location reveals
+# this elevation. In some cases there are shallow and deep measurements, shallow is the first number in de list of values, deep the last)
+def update_md():
+    tubetop = {}
+    tubetop["Skrins"] = 1.5
+    tubetop["Polder Hee"] = 2.5
+    tubetop["Oosterbierum"] = (2, 7)
+    tubetop["Sterneplak"] = (2, 7)
+    tubetop["Oosterbierum (DM-10-NW)"] = (3, 6.5)
+    tubetop["Gaasterland – Rijsterpolder (DM-09-ZW)"] = (4, 15)
+    tubetop["Kleine Wielen"] = 2
+    tubetop["Echtenerveenpolder"] = 2
+    tubetop["De Stripe - Wijnjewoude (DM-01-ZO)"] = 5
+    tubetop["Wijnjeterperschar"] = 1
+    tubetop["Fochteloo"] = 2.5
+    tubetop["Duurswouderheide (DM-02-ZO)"] = 1.5
+    tubetop["Sweagermieden (DM-07-NO)"] = 2
+    tubetop["Lauwersmeer Kollumerwaard (DM-08-NO)"] = 1
+    tubetop["Oldetrijne – De Meenthe"] = (None, None)
+    tubetop["Hempensermeerpolder (DM-06-ZW)"] = 1.5
+    tubetop["Reahelstermieden (DM-04-NO)"] = 1.5
+    tubetop["Kop van Bloksloot (DM-05-ZW)"] = 1
+    tubetop["Drents Friese Wold (DM-03-ZO)"] = 2.5
+
+    # in case 2 values are mentioned.... the difference between shallow, deep data is the parameterkey
+    # 1 for shallow, 2 for deep groundwater. In case of 2, this will be ignored, for now!
+    for tb in tubetop.keys():
+        if type(tubetop[tb]) is tuple:
+            shtt = tubetop[tb][0]
+        else:
+            shtt = tubetop[tb]
+        strsql = text(
+            """update wskip_timeseries.location set tubetop = :shtt where name = :tb"""
+        )
+        engine.execute(strsql, {"shtt": shtt, "tb": tb})
 
 
 if __name__ == "__main__":

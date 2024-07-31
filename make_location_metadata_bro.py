@@ -81,7 +81,7 @@ for i in range(len(locs)):
                     VALUES ({lockey},{x},{y}, {z}, {zt},{zb})
                     ON CONFLICT(well_id)
                     DO UPDATE SET
-                    x_well = {x}, y_well = {y}, z_surface_level_m_nap = {z}, top_screen_m_mv = {zb}, bot_screen_m_mv = {zb}"""
+                    x_well = {x}, y_well = {y}, z_surface_level_m_nap = {z}, top_screen_m_mv = {zt}, bot_screen_m_mv = {zb}"""
         engine.execute(strsql)
     except Exception as e:
         # Handle the conflict (e.g., log the error or ignore it)

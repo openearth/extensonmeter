@@ -36,7 +36,6 @@ import tempfile
 import simplejson as json
 import numpy as np
 from pyproj import Proj, transform
-from owslib.wms import WebMapService
 from owslib.wcs import WebCoverageService
 from osgeo import gdal
 import rasterio
