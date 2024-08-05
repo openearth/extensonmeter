@@ -47,7 +47,9 @@ from ts_helpers.ts_helpers import establishconnection, testconnection
 # globals
 geoserver_url = "https://service.pdok.nl/rws/ahn/wcs/v1_0"
 layername = "dtm_05m"
-tmpdir = r"c:\temp\somers"
+# tmpdir = r"c:\temp\somers"
+# derive tmpdir from system
+tmpdir = tempfile.gettempdir()
 
 # dictionary of tables to check for data in column altitude_msl
 # key = tablename, value = columnname
@@ -151,6 +153,8 @@ def getmv4point(x, y):
     araster = rasterio.open(arf)
     row, col = araster.index(x, y)
     val = araster.read(1)[row, col]
+    if val > 100:
+        val = "Null"
     araster.close()
     return val
 
