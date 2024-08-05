@@ -214,13 +214,13 @@ path_1 = r"P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvra
 path_2 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Delfland\SOMERS_DATA' #heel veel data maar bijna geen locatie komt terug voor de analyse
 path_3 = r"P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\HDSR\geschikte_data"
 path_4 = r"P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\AGV\bewerkt"  # gebruikt spaties als sep in de GWM maar niet in de SWM
-# path_5 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\HunzeenAas\bewerkt' #datum tijd notatie klopt nog niet
-path_6 = r"P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Wetterskip"  # (string replace has to be on to work with this data)
+path_5 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\HunzeenAas\bewerkt' #datum tijd notatie klopt nog niet
+path_6 = r"P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Wetterskip\SWM" 
+path_7 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\HHSK\bewerkt' # (string replace has to be on to work with this data)
 
 # Create a list of paths
-# paths = [path_1, path_2]
-paths = [path_2]
-wb_name = 'Delfland'
+paths = [path_7]
+wb_name = 'HHSK' #sorry, this is a manual change as you have to tick the paths induvially to check for errors..
 
 # assigning parameters, either grondwaterstand or slootwaterpeil
 # zoetwaterstijghoogtes
@@ -311,6 +311,7 @@ for root in paths:
                     df["locationkey"] = locationkey
                     df["epsgcode"] = 28992
                     df["filesourcekey"] = fskey[0][0]
+                    df['name'] = str(wb_name)+'_' + df['name'].astype(str)
 
                     if y == False:
                         df.to_sql(
@@ -402,6 +403,7 @@ for root in paths:
                     locationtable["locationkey"] = locationkey
                     locationtable["epsgcode"] = 28992
                     locationtable["filesourcekey"] = fskey[0][0]
+                    locationtable['name'] = str(wb_name)+'_' + locationtable['name'].astype(str)
 
                     if y == False:
                         locationtable.to_sql(

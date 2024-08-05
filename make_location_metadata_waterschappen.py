@@ -39,7 +39,7 @@ cf = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_online_qsomers.tx
 
 session, engine = establishconnection(cf)
 
-# -------------- section for BRO data
+# -------------- section for data
 # step 1. setup location_metadata table
 # step 2. fill with location data for selection of data
 # step 3. assign ahn4
@@ -49,8 +49,8 @@ session, engine = establishconnection(cf)
 # step 7. compile info to location.metadata table
 
 # 1 setup metadata table (tbl should be new name)
-tbl = "nobv_timeseries.location"
-nwtbl = "nobv_timeseries.location_metadata2"
+tbl = "waterschappen_timeseries.location"
+nwtbl = "waterschappen_timeseries.location_metadata2"
 create_location_metadatatable(cf, nwtbl)
 
 # 2 BRO specific
@@ -64,7 +64,7 @@ SELECT
 	altitude_msl as z_surface_level_m_nap,
 	tubetop as top_screen_m_mv,
 	tubebot as bot_screen_m_mv
-FROM nobv_timeseries.location
+FROM waterschappen_timeseries.location
 order by locationkey
 """
 locs = engine.execute(strsql).fetchall()
@@ -76,39 +76,44 @@ for i in range(len(locs)):
     zt = locs[i][4]
     zb = locs[i][5]
     try:
-        strsql = f"""insert into {tbl} (well_id, x_well,y_well,z_surface_level_m_nap,top_screen_m_mv,bot_screen_m_mv) 
+        strsql = f"""insert into {nwtbl} (well_id, x_well,y_well,z_surface_level_m_nap,top_screen_m_mv,bot_screen_m_mv) 
                     VALUES ({lockey},{x},{y}, {z}, {zt},{zb})
                     ON CONFLICT(well_id)
                     DO UPDATE SET
-                    x_well = {x}, y_well = {y}, z_surface_level_m_nap = {z}, top_screen_m_mv = {zb}, bot_screen_m_mv = {zb}"""
+                    x_well = {x}, 
+                    y_well = {y}, 
+                    z_surface_level_m_nap = {z}, 
+                    top_screen_m_mv = {zb}, 
+                    bot_screen_m_mv = {zb}""".replace(
+                "None", "Null"
+            )
         engine.execute(strsql)
     except Exception as e:
         # Handle the conflict (e.g., log the error or ignore it)
         print(f"Error: {e}. {lockey}.")
 
 # create list to loop over
-rename_cols = [
-    "parcel_width_m",
-    "trenches",
-    "trench_depth_m_sfl",
-    "summer_stage_m_nap",
-    "winter_stage_m_nap",
-    "wis_distance_m",
-    "wis_depth_m_sfl",
-]
-for i in range(len(rename_cols)):
-    strsql = f"""
-    UPDATE nobv_timeseries.location_metadata2 m2
-    SET {rename_cols[i]} = m1.{rename_cols[i]}
-    FROM nobv_timeseries.location_metadata m1
-    WHERE m1.well_id = m2.well_id
-    """
-    engine.execute(strsql)
+# rename_cols = [
+#     "parcel_width_m",
+#     "trenches",
+#     "trench_depth_m_sfl",
+#     "summer_stage_m_nap",
+#     "winter_stage_m_nap",
+#     "wis_distance_m",
+#     "wis_depth_m_sfl",
+# ]
+# for i in range(len(rename_cols)):
+#     strsql = f"""
+#     UPDATE waterschappen_timeseries.location_metadata2 m2
+#     SET {rename_cols[i]} = m1.{rename_cols[i]}
+#     FROM waterschappen_timeseries.location_metadata m1
+#     WHERE m1.well_id = m2.well_id
+#     """
+#     engine.execute(strsql)
 
 # 3 assign ahn4 (needs some small changes to get it working)
-
 # need of geometry column for conversion to Lat-long, it is expected that geom is in 28992
-assign_ahn4.assign_ahn(engine, tbl, nwtbl)
+assign_ahn4.assign_ahn(engine, "waterschappen_timeseries.location", nwtbl)
 
 # 4 assign soiltype
 assign_soiltype.assign_soiltype(engine, nwtbl)
@@ -144,4 +149,3 @@ assign_top10.assign_t10(engine, tbl, nwtbl)
 
 # 7 assign timeseries timewindow and number of records
 assign_timeseriesstats.settimeseriesstats(engine, tbl, nwtbl)
-
