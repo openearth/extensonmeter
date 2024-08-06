@@ -126,7 +126,6 @@ dcttable["wskip_timeseries.location"] = "placeholder"
 dcttable["waterschappen_timeseries.location"] = "placeholder"  # handmetingen
 dcttable["nobv_timeseries.location"] = "placeholder"  # nobv handmatige bewerkingen data
 
-
 nwtbl = "metadata_ongecontroleerd.gwm"
 strsql = f"""drop table if exists {nwtbl}; 
 create table if not exists {nwtbl} (source serial primary key);"""
@@ -139,6 +138,7 @@ for columname in dctcolumns.keys():
 for tbl in dcttable.keys():
     n = tbl.split("_")[0]
     print("attempt to exectute queries for", n)
+    # NOBV and Waterschappen can have multipe parameters per location, only GWM now required.
     if n == "nobv" or n == "waterschappen":
         strsql = f"""insert into {nwtbl} (well_id, 
             aan_id,
@@ -174,13 +174,13 @@ for tbl in dcttable.keys():
         SELECT ('{n}_'||l.locationkey::text) as well_id, 
             i.aan_id,
             l.name, 
-            '' as transect,
-            'ref' as parcel_type,
-            '' as mt.ditch_id,
+            mt.transect,
+            mt.parcel_type,
+            mt.ditch_id,
             '' as ditch_name, 
-            i.archetype,
-            Null::double precision as ahn4_m_nap, 
-            mt.surface_level_ahn4_m_nap, 
+            i.archetype as soil_class,
+            Null::double precision as surface_level_m_nap, 
+            mt.surface_level_ahn4_m_nap as ahn4_m_nap, 
             mt.start_date,
             mt.end_date,
             mt.parcel_width_m, 
@@ -247,13 +247,13 @@ for tbl in dcttable.keys():
         SELECT ('{n}_'||l.locationkey::text) as well_id, 
             i.aan_id,
             l.name, 
-            '' as transect,
-            'ref' as parcel_type,
+            mt.transect,
+            mt.parcel_type,
             mt.ditch_id,
             '' as ditch_name, 
-            i.archetype,
-            Null::double precision as ahn4_m_nap, 
-            mt.surface_level_ahn4_m_nap, 
+            i.archetype as soil_class,
+            Null::double precision as surface_level_m_nap, 
+            mt.surface_level_ahn4_m_nap as ahn4_m_nap, 
             mt.start_date,
             mt.end_date,
             mt.parcel_width_m, 
