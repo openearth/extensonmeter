@@ -31,7 +31,7 @@
 # - assignment of parcelwidth and distance of ditches?
 # - assignment distance to roads or waterbodies
 
-
+#%%
 # import math
 import time
 
@@ -54,15 +54,15 @@ from ts_helpers.ts_helpers import establishconnection, testconnection
 
 dctcolumns = {}
 dctcolumns["well_id"] = "text"
-dctcolumns["aan_id"] = "text"
+dctcolumns["aan_id"] = "integer"
 dctcolumns["name"] = "text"
 dctcolumns["transect"] = "text"
-dctcolumns["parcel_type"] = "text"
+dctcolumns["parcel_type"] = "text" #is er een maatregel ja/nee (standaard is ref)
 dctcolumns["ditch_id"] = "text"
 dctcolumns["ditch_name"] = "text"
 dctcolumns["soil_class"] = "text"
-dctcolumns["surface_level_m_nap"] = "double precision"
-dctcolumns["ahn4_m_nap"] = "double precision"
+dctcolumns["z_surface_level_m_nap"] = "double precision" #doorgegeven maaiveld door waterschap of dergelijke
+dctcolumns["ahn4_m_nap"] = "double precision" #berekend maaiveld doormiddel van AHN
 dctcolumns["start_date"] = "text"
 dctcolumns["end_date"] = "text"
 dctcolumns["records"] = "integer"
@@ -76,11 +76,11 @@ dctcolumns["trenches"] = "double precision[]"
 dctcolumns["trench_depth_m_sfl"] = "double precision"
 dctcolumns["wis_distance_m"] = "double precision"
 dctcolumns["wis_depth_m_sfl"] = "double precision"
-dctcolumns["distance_wis"] = "double precision"
-dctcolumns["z_well"] = "double precision"
+dctcolumns["distance_to_wis_m"] = "double precision"
+# dctcolumns["z_well"] = "double precision"
 dctcolumns["screen_top_m_sfl"] = "double precision"
 dctcolumns["screen_bot_m_sfl"] = "double precision"
-dctcolumns["altitude_msl"] = "double precision"
+dctcolumns["altitude_m_nap"] = "double precision" #top buis
 dctcolumns["geometry"] = (
     "geometry(POINT, 28992)"  # Point representation because it is used in further analysis
 )
@@ -89,8 +89,8 @@ dctcolumns["selection"] = "text"
 dctcolumns["description"] = "text"
 
 # globals
-cf = r"C:\develop\extensometer\connection_online.txt"
-# cf = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_online_qsomers.txt"
+# cf = r"C:\develop\extensometer\connection_online.txt"
+cf = r"C:\projecten\grondwater_monitoring\nobv\2023\connection_online_qsomers.txt"
 session, engine = establishconnection(cf)
 
 if not testconnection(engine):
@@ -148,7 +148,7 @@ for tbl in dcttable.keys():
             ditch_id,
             ditch_name,
             soil_class,
-            surface_level_m_nap,
+            z_surface_level_m_nap,
             ahn4_m_nap,
             start_date,
             end_date,
@@ -163,24 +163,23 @@ for tbl in dcttable.keys():
             trench_depth_m_sfl,
             wis_distance_m,
             wis_depth_m_sfl,
-            distance_wis,
-            z_well,
+            distance_to_wis_m,
             screen_top_m_sfl,
             screen_bot_m_sfl,
-            altitude_msl,
+            altitude_m_nap,
             geometry, 
             parcel_geom,
             selection,
             description)
         SELECT ('{n}_'||l.locationkey::text) as well_id, 
-            i.aan_id,
+            i.aan_id::integer,
             l.name, 
             mt.transect,
-            mt.parcel_type,
+            'ref' as parcel_type,
             mt.ditch_id,
             '' as ditch_name, 
             i.archetype as soil_class,
-            Null::double precision as surface_level_m_nap, 
+            mt.z_surface_level_m_nap as z_surface_level_m_nap, 
             mt.surface_level_ahn4_m_nap as ahn4_m_nap, 
             mt.start_date,
             mt.end_date,
@@ -195,11 +194,10 @@ for tbl in dcttable.keys():
             mt.trench_depth_m_sfl,
             mt.wis_distance_m,
             mt.wis_depth_m_sfl,
-            Null::double precision as distance_wis,
-            l.z,
+            Null::double precision as distance_to_wis_m,
             l.tubetop as screen_top_m_sfl, 
             l.tubebot as screen_bot_m_sfl,
-            l.altitude_msl,
+            l.altitude_msl as altitude_m_nap,
             l.geom,
             st_astext(st_force2d(i.geom)),
             'yes' as selection,
@@ -223,7 +221,7 @@ for tbl in dcttable.keys():
             ditch_id,
             ditch_name,
             soil_class,
-            surface_level_m_nap,
+            z_surface_level_m_nap,
             ahn4_m_nap,
             start_date,
             end_date,
@@ -238,24 +236,23 @@ for tbl in dcttable.keys():
             trench_depth_m_sfl,
             wis_distance_m,
             wis_depth_m_sfl,
-            distance_wis,
-            z_well,
+            distance_to_wis_m,
             screen_top_m_sfl,
             screen_bot_m_sfl,
-            altitude_msl,
+            altitude_m_nap,
             geometry, 
             parcel_geom,
             selection,
             description)
         SELECT ('{n}_'||l.locationkey::text) as well_id, 
-            i.aan_id,
+            i.aan_id::integer,
             l.name, 
             mt.transect,
-            mt.parcel_type,
+            'ref' as parcel_type,
             mt.ditch_id,
             '' as ditch_name, 
             i.archetype as soil_class,
-            Null::double precision as surface_level_m_nap, 
+            Null::double precision as z_surface_level_m_nap, 
             mt.surface_level_ahn4_m_nap as ahn4_m_nap, 
             mt.start_date,
             mt.end_date,
@@ -270,11 +267,10 @@ for tbl in dcttable.keys():
             mt.trench_depth_m_sfl,
             mt.wis_distance_m,
             mt.wis_depth_m_sfl,
-            Null::double precision as distance_wis,
-            l.z,
+            Null::double precision as distance_to_wis_m,
             l.tubetop as screen_top_m_sfl, 
             l.tubebot as screen_bot_m_sfl,
-            l.altitude_msl,
+            l.altitude_msl as altitude_m_nap,
             l.geom,
             st_astext(st_force2d(i.geom)),
             'yes' as selection,
@@ -288,18 +284,6 @@ for tbl in dcttable.keys():
             ON CONFLICT(source)
             DO NOTHING;"""
         engine.execute(strsql)
-
-    strsql = f"""UPDATE {nwtbl} t
-        SET parcel_width_m = i.sloot_afst
-        FROM {n}_timeseries.location l
-        JOIN {n}_timeseries.location_metadata2 mt ON mt.well_id = l.locationkey
-        JOIN public.input_parcels_2022 i ON ST_Within(l.geom, i.geom)
-        WHERE mt.distance_to_railroad_m > 10
-        AND mt.distance_to_road_m > 10
-        AND mt.distance_to_ditch_m > 5
-        AND t.well_id = ('{n}_' || l.locationkey::text)
-        AND t.parcel_width_m IS NULL;"""
-    engine.execute(strsql)
 
 nwtbl = "metadata_ongecontroleerd.swm"
 strsql = f"""drop table if exists {nwtbl}; 
