@@ -25,11 +25,8 @@
 # Sign up to recieve regular updates of this function, and to contribute
 # your own tools.
 
-# set of functions that gets data for every location available regarding a list of parameters:
-# - derivation of AHN4 surface levels (DTM)
-# - assignment of SOILTYPE from locally loaded SOILMAP
-# - assignment of parcelwidth and distance of ditches?
-# - assignment distance to roads or waterbodies
+# aim is to overwrite harvested data with expert judgement data for each record and each
+# column
 
 # import math
 import time
@@ -49,6 +46,7 @@ session, engine = establishconnection(cf)
 
 if not testconnection(engine):
     print("Connecting to database failed")
+
 
 # dictionary of tables to check for data in column altitude_msl
 # check if there is the manual edited data in schema
@@ -77,6 +75,15 @@ strsql = text(
 strsql = strsql.bindparams(v="dummy")
 with engine.connect() as conn:
     res = conn.execute(strsql)
+
+
+# step 1 load the data
+xlsx = r"C:\projectinfo\nl\NOBV\data\SOMERS_DATA\handmatige_aanpassingen_kalibratie_v30-7-24_V2.xlsx"
+loadexpertjudgementdata(xlsx)
+
+# step 2 ETL that gets the data from mastermetadata and overwrites the harvested data
+# with the expert judgment data
+# so metadata_ongecontroleerd.kalibratie combined to metadata_gecontroleerd.kalibratie + expert judgement data
 
 # todo make sure the last entered opbject is the final change.
 """select well_id, max(parcel_width_m),max(distance_to_ditch_m), max(changedate) from handmatige_aanpassingen.handmatige_aanpassingen_kalibratie

@@ -85,8 +85,8 @@ for i in range(len(locs)):
                     z_surface_level_m_nap = {z}, 
                     top_screen_m_mv = {zb}, 
                     bot_screen_m_mv = {zb}""".replace(
-                "None", "Null"
-            )
+            "None", "Null"
+        )
         engine.execute(strsql)
     except Exception as e:
         # Handle the conflict (e.g., log the error or ignore it)
@@ -121,7 +121,7 @@ assign_soiltype.assign_soiltype(engine, nwtbl)
 # 5 assign parcelvalues
 assign_parcelvalues.assign_parcelvalues(engine, nwtbl)
 
-#5.5 extra needed for saving the parcel_width_m data
+# 5.5 extra needed for saving the parcel_width_m data
 strsql = """
 SELECT 
 	well_id,

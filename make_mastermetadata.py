@@ -76,8 +76,10 @@ dctcolumns["trench_depth_m_sfl"] = "double precision"
 dctcolumns["wis_distance_m"] = "double precision"
 dctcolumns["wis_depth_m_sfl"] = "double precision"
 dctcolumns["distance_wis"] = "double precision"
-dctcolumns["tube_top"] = "double precision"
-dctcolumns["tube_bot"] = "double precision"
+dctcolumns["z_well"] = "double precision"
+dctcolumns["screen_top_m_sfl"] = "double precision"
+dctcolumns["screen_bot_m_sfl"] = "double precision"
+dctcolumns["altitude_msl"] = "double precision"
 dctcolumns["geometry"] = (
     "geometry(POINT, 28992)"  # Point representation because it is used in further analysis
 )
@@ -117,8 +119,8 @@ def preptable(tbl, columname, datatype):
 
 dcttable = {}
 dcttable["bro_timeseries.location"] = "placeholder"
-dcttable["hdsr_timeseries.location"] = "placeholder"
-dcttable["hhnk_timeseries.location"] = "placeholder"
+# dcttable["hdsr_timeseries.location"] = "placeholder"
+# dcttable["hhnk_timeseries.location"] = "placeholder"
 dcttable["wskip_timeseries.location"] = "placeholder"
 dcttable["waterschappen_timeseries.location"] = "placeholder"  # handmetingen
 dcttable["nobv_timeseries.location"] = "placeholder"  # nobv handmatige bewerkingen data
@@ -138,7 +140,8 @@ for tbl in dcttable.keys():
     print("attempt to exectute queries for", n)
     if n == "nobv" or n == "waterschappen":
         strsql = f"""insert into {nwtbl} (well_id, 
-            aan_id,name,
+            aan_id,
+            name,
             transect,
             parcel_type,
             ditch_id,
@@ -159,11 +162,10 @@ for tbl in dcttable.keys():
             wis_distance_m,
             wis_depth_m_sfl,
             distance_wis,
-            tube_top,
-            screen_top,
-            screen_bot,
+            z_well,
+            screen_top_m_sfl,
+            screen_bot_m_sfl,
             altitude_msl,
-            recision,
             geometry, 
             parcel_geom,
             selection,
@@ -173,11 +175,11 @@ for tbl in dcttable.keys():
             l.name, 
             '' as transect,
             'ref' as parcel_type,
-            mt.ditch_id,
+            '' as mt.ditch_id,
             '' as ditch_name, 
             i.archetype,
             Null::double precision as ahn4_m_nap, 
-            mt.surface_level_m_nap, 
+            mt.surface_level_ahn4_m_nap, 
             mt.start_date,
             mt.end_date,
             mt.parcel_width_m, 
@@ -191,16 +193,16 @@ for tbl in dcttable.keys():
             mt.wis_distance_m,
             mt.wis_depth_m_sfl,
             Null::double precision as distance_wis,
-            Null::double precision as tube_top,
-            l.tubetop, 
-            l.tubebot,
+            l.z
+            l.tubetop as screen_top_m_sfl, 
+            l.tubebot as screen_bot_m_sfl,
             l.altitude_msl,
             l.geom,
             st_astext(st_force2d(i.geom)),
             'yes' as selection,
             l.description
             FROM {n}_timeseries.location l
-            JOIN {n}_timeseries.location_metadata mt on mt.well_id = l.locationkey
+            JOIN {n}_timeseries.location_metadata2 mt on mt.well_id = l.locationkey
             JOIN {n}_timeseries.timeseries t on t.locationkey = l.locationkey
             JOIN {n}_timeseries.parameter p on p.parameterkey = t.parameterkey
             JOIN public.input_parcels_2022 i on st_within(l.geom,i.geom)
@@ -211,7 +213,8 @@ for tbl in dcttable.keys():
 
     else:
         strsql = f"""insert into {nwtbl} (well_id, 
-            aan_id,name,
+            aan_id,
+            name,
             transect,
             parcel_type,
             ditch_id,
@@ -232,11 +235,10 @@ for tbl in dcttable.keys():
             wis_distance_m,
             wis_depth_m_sfl,
             distance_wis,
-            tube_top,
-            screen_top,
-            screen_bot,
+            z_well,
+            screen_top_m_sfl,
+            screen_bot_m_sfl,
             altitude_msl,
-            recision,
             geometry, 
             parcel_geom,
             selection,
@@ -250,7 +252,7 @@ for tbl in dcttable.keys():
             '' as ditch_name, 
             i.archetype,
             Null::double precision as ahn4_m_nap, 
-            mt.surface_level_m_nap, 
+            mt.surface_level_ahn4_m_nap, 
             mt.start_date,
             mt.end_date,
             mt.parcel_width_m, 
@@ -265,15 +267,15 @@ for tbl in dcttable.keys():
             mt.wis_depth_m_sfl,
             Null::double precision as distance_wis,
             l.z,
-            l.tubetop, 
-            l.tubebot,
+            l.tubetop as screen_top_m_sfl, 
+            l.tubebot as screen_bot_m_sfl,
             l.altitude_msl,
             l.geom,
             st_astext(st_force2d(i.geom)),
             'yes' as selection,
             l.description
             FROM {n}_timeseries.location l
-            JOIN {n}_timeseries.location_metadata mt on mt.well_id = l.locationkey
+            JOIN {n}_timeseries.location_metadata2 mt on mt.well_id = l.locationkey
             JOIN {n}_timeseries.timeseries t on t.locationkey = l.locationkey
             JOIN {n}_timeseries.parameter p on p.parameterkey = t.parameterkey
             JOIN public.input_parcels_2022 i on st_within(l.geom,i.geom)
