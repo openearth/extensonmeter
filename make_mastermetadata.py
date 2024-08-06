@@ -65,6 +65,7 @@ dctcolumns["surface_level_m_nap"] = "double precision"
 dctcolumns["ahn4_m_nap"] = "double precision"
 dctcolumns["start_date"] = "text"
 dctcolumns["end_date"] = "text"
+dctcolumns["records"] = "integer"
 dctcolumns["parcel_width_m"] = "double precision"
 dctcolumns["summer_stage_m_nap"] = "double precision"
 dctcolumns["winter_stage_m_nap"] = "double precision"
@@ -119,8 +120,8 @@ def preptable(tbl, columname, datatype):
 
 dcttable = {}
 dcttable["bro_timeseries.location"] = "placeholder"
-# dcttable["hdsr_timeseries.location"] = "placeholder"
-# dcttable["hhnk_timeseries.location"] = "placeholder"
+dcttable["hdsr_timeseries.location"] = "placeholder"
+dcttable["hhnk_timeseries.location"] = "placeholder"
 dcttable["wskip_timeseries.location"] = "placeholder"
 dcttable["waterschappen_timeseries.location"] = "placeholder"  # handmetingen
 dcttable["nobv_timeseries.location"] = "placeholder"  # nobv handmatige bewerkingen data
