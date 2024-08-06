@@ -323,7 +323,7 @@ for tbl in dcttable.keys():
         engine.execute(strsql)
 
 # %%
-
+# !!!! query does not work inside of python, but does work in pg admin. Run this part in PG admin
 strsql = f"""WITH updated_values AS (
     SELECT DISTINCT ON (l.source) 
         l.well_id AS all_source, 
@@ -367,6 +367,7 @@ engine.execute(strsql)
 print("created table kalibratie, validatie")
 
 # bear in mind ownership of the tables
+# does not work inside python and needs to be done in pgadmin
 user = "hendrik_gt"
 strsql = f"reassing owned by {user} to qsomers"
 engine.execute(strsql)
