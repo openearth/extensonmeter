@@ -152,6 +152,7 @@ for tbl in dcttable.keys():
             ahn4_m_nap,
             start_date,
             end_date,
+            records,
             parcel_width_m,
             summer_stage_m_nap,
             winter_stage_m_nap,
@@ -183,6 +184,7 @@ for tbl in dcttable.keys():
             mt.surface_level_ahn4_m_nap as ahn4_m_nap, 
             mt.start_date,
             mt.end_date,
+            mt.records,
             mt.parcel_width_m, 
             mt.summer_stage_m_nap,
             mt.winter_stage_m_nap, 
@@ -194,7 +196,7 @@ for tbl in dcttable.keys():
             mt.wis_distance_m,
             mt.wis_depth_m_sfl,
             Null::double precision as distance_wis,
-            l.z
+            l.z,
             l.tubetop as screen_top_m_sfl, 
             l.tubebot as screen_bot_m_sfl,
             l.altitude_msl,
@@ -225,6 +227,7 @@ for tbl in dcttable.keys():
             ahn4_m_nap,
             start_date,
             end_date,
+            records,
             parcel_width_m,
             summer_stage_m_nap,
             winter_stage_m_nap,
@@ -256,6 +259,7 @@ for tbl in dcttable.keys():
             mt.surface_level_ahn4_m_nap as ahn4_m_nap, 
             mt.start_date,
             mt.end_date,
+            mt.records,
             mt.parcel_width_m, 
             mt.summer_stage_m_nap,
             mt.winter_stage_m_nap, 
@@ -288,17 +292,17 @@ for tbl in dcttable.keys():
     strsql = f"""UPDATE {nwtbl} t
         SET parcel_width_m = i.sloot_afst
         FROM {n}_timeseries.location l
-        JOIN {n}_timeseries.location_metadata mt ON mt.well_id = l.locationkey
+        JOIN {n}_timeseries.location_metadata2 mt ON mt.well_id = l.locationkey
         JOIN public.input_parcels_2022 i ON ST_Within(l.geom, i.geom)
         WHERE mt.distance_to_railroad_m > 10
         AND mt.distance_to_road_m > 10
         AND mt.distance_to_ditch_m > 5
         AND t.well_id = ('{n}_' || l.locationkey::text)
-        AND t.parcel_width_m IS NULL;; """
+        AND t.parcel_width_m IS NULL;"""
     engine.execute(strsql)
 
 nwtbl = "metadata_ongecontroleerd.swm"
-strsql = f"""drop table {nwtbl}; 
+strsql = f"""drop table if exists {nwtbl}; 
 create table if not exists {nwtbl} (source text primary key)"""
 engine.execute(strsql)
 print("table created", nwtbl)
@@ -311,7 +315,7 @@ for tbl in dcttable.keys():
         print(n)
         strsql = f"""insert into {nwtbl} (source, name, geom)
             SELECT ('{n}_'||l.locationkey::text) as source, l.name, l.geom FROM {n}_timeseries.location l
-            JOIN {n}_timeseries.location_metadata mt on mt.well_id = l.locationkey
+            JOIN {n}_timeseries.location_metadata2 mt on mt.well_id = l.locationkey
             JOIN {n}_timeseries.timeseries t on t.locationkey = l.locationkey
             JOIN {n}_timeseries.parameter p on p.parameterkey = t.parameterkey where p.id = 'SWM'
             ON CONFLICT(source)
@@ -348,13 +352,13 @@ WHERE metadata_ongecontroleerd.gwm.well_id = updated_values.all_source;"""
 engine.execute(strsql)
 
 # %%
-strsql = f"""drop table metadata_ongecontroleerd.kalibratie; 
+strsql = f"""drop table if exists metadata_ongecontroleerd.kalibratie; 
 create table metadata_ongecontroleerd.kalibratie as
 select * from metadata_ongecontroleerd.gwm
 where ditch_id is not Null;"""
 engine.execute(strsql)
 
-strsql = f"""drop table metadata_ongecontroleerd.validatie;
+strsql = f"""drop table if exists metadata_ongecontroleerd.validatie;
 create table metadata_ongecontroleerd.validatie as
 select * from metadata_ongecontroleerd.gwm
 where ditch_id is Null;"""
