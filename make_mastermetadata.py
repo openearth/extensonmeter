@@ -31,7 +31,7 @@
 # - assignment of parcelwidth and distance of ditches?
 # - assignment distance to roads or waterbodies
 
-#%%
+# %%
 # import math
 import time
 
@@ -46,47 +46,8 @@ from owslib.wcs import WebCoverageService
 from osgeo import gdal
 import rasterio
 
-## Utils WCS [from fast]
-from utils_wcs import *
 from ts_helpers.ts_helpers import establishconnection, testconnection
-
-# dictionary below is used to setup the mastertable that collects all data from the various schema's into 1 table
-
-dctcolumns = {}
-dctcolumns["well_id"] = "text"
-dctcolumns["aan_id"] = "integer"
-dctcolumns["name"] = "text"
-dctcolumns["transect"] = "text"
-dctcolumns["parcel_type"] = "text" #is er een maatregel ja/nee (standaard is ref)
-dctcolumns["ditch_id"] = "text"
-dctcolumns["ditch_name"] = "text"
-dctcolumns["soil_class"] = "text"
-dctcolumns["z_surface_level_m_nap"] = "double precision" #doorgegeven maaiveld door waterschap of dergelijke
-dctcolumns["ahn4_m_nap"] = "double precision" #berekend maaiveld doormiddel van AHN
-dctcolumns["start_date"] = "text"
-dctcolumns["end_date"] = "text"
-dctcolumns["records"] = "integer"
-dctcolumns["parcel_width_m"] = "double precision"
-dctcolumns["summer_stage_m_nap"] = "double precision"
-dctcolumns["winter_stage_m_nap"] = "double precision"
-dctcolumns["x_well"] = "double precision"
-dctcolumns["y_well"] = "double precision"
-dctcolumns["distance_to_ditch_m"] = "double precision"
-dctcolumns["trenches"] = "double precision[]"
-dctcolumns["trench_depth_m_sfl"] = "double precision"
-dctcolumns["wis_distance_m"] = "double precision"
-dctcolumns["wis_depth_m_sfl"] = "double precision"
-dctcolumns["distance_to_wis_m"] = "double precision"
-# dctcolumns["z_well"] = "double precision"
-dctcolumns["screen_top_m_sfl"] = "double precision"
-dctcolumns["screen_bot_m_sfl"] = "double precision"
-dctcolumns["altitude_m_nap"] = "double precision" #top buis
-dctcolumns["geometry"] = (
-    "geometry(POINT, 28992)"  # Point representation because it is used in further analysis
-)
-dctcolumns["parcel_geom"] = "text"  # WKT represenation of the geom of the parcel
-dctcolumns["selection"] = "text"
-dctcolumns["description"] = "text"
+from db_helpers import preptable, tablesetup, create_location_metadatatable
 
 # globals
 # cf = r"C:\develop\extensometer\connection_online.txt"
@@ -96,28 +57,16 @@ session, engine = establishconnection(cf)
 if not testconnection(engine):
     print("Connecting to database failed")
 
-# dictionary of tables to check for data in column altitude_msl
-# key = tablename, value = columnname
-# every table is indicating the table with locations and has as value the column
-# that has measured surface elevation
+# create tabel
+nwtbl = "metadata_ongecontroleerd.gwm"
+strsql = f"""drop table if exists {nwtbl}; """
+engine.execute(strsql)
 
+dctcolumns = tablesetup()
+create_location_metadatatable(cf, nwtbl, dctcolumns)
+print("table created", nwtbl)
 
-def preptable(tbl, columname, datatype):
-    """alters a table in the database and adds a column with a specified datatype if not existing
-
-    Args:
-        tbl (text): tablename
-        columnname (text): columnname
-        datatype (text): datatype (i.e. text, double precision, integer, boolean)
-
-    Remark:
-        In case of geometry column write out full datatype e.g. GEOMETRY POINT(28992)
-    """
-    strsql = f"ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS {columname} {datatype}"
-    engine.execute(strsql)
-    return
-
-
+# setup dcttable with tables
 dcttable = {}
 dcttable["bro_timeseries.location"] = "placeholder"
 dcttable["hdsr_timeseries.location"] = "placeholder"
@@ -126,15 +75,7 @@ dcttable["wskip_timeseries.location"] = "placeholder"
 dcttable["waterschappen_timeseries.location"] = "placeholder"  # handmetingen
 dcttable["nobv_timeseries.location"] = "placeholder"  # nobv handmatige bewerkingen data
 
-nwtbl = "metadata_ongecontroleerd.gwm"
-strsql = f"""drop table if exists {nwtbl}; 
-create table if not exists {nwtbl} (source serial primary key);"""
-engine.execute(strsql)
-print("table created", nwtbl)
-for columname in dctcolumns.keys():
-    print(columname)
-    preptable(nwtbl, columname, dctcolumns[columname])
-
+# retrieve for every table in the dicttable all relevant data and transfer to nwtbl
 for tbl in dcttable.keys():
     n = tbl.split("_")[0]
     print("attempt to exectute queries for", n)

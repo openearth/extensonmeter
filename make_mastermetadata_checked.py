@@ -36,8 +36,9 @@ import os
 import pandas as pd
 from sqlalchemy import text
 
-## Utils WCS [from fast]
+## load several helper functions
 from ts_helpers.ts_helpers import establishconnection, testconnection
+from db_helpers import preptable, tablesetup, create_location_metadatatable
 
 # globals
 cf = r"C:\develop\extensometer\connection_online.txt"
@@ -57,36 +58,69 @@ with engine.connect() as conn:
 
 # because we need a clear defined table (dataformats), the first record is a dummy record with specified
 # dataformats that will retrieved by the pd.read_excel function
-xlsx = r"C:\projectinfo\nl\NOBV\data\SOMERS_DATA\handmatige_aanpassingen_kalibratie_v30-7-24_V2.xlsx"
+def loadexpertjudgementdata(xlsx,ifexists):
+    """Loads the provided expert data. The setup is expect to be exactly the same as 
+       the data in metadata_ongecontroleerd.kalibratie
 
+    Args:
+        cf  (string): link to connection file with credentials
+        tbl (string): schema.table name with locations that act as basedata.
+        metatable (string): schema.table name with metadata for each location
 
-def loadexpertjudgementdata(xlsx):
+    Returns:
+        ...    
+    """
+    tbl = "handmatige_aanpassingen_kalibratie"
     df = pd.read_excel(xlsx, parse_dates=True)
     df.to_sql(
-        "handmatige_aanpassingen_kalibratie",
+        tbl,
         engine,
         schema=schema,
         index=False,
-        if_exists="append",
+        if_exists=ifexists,
     )
 
     # this first record will be removed with following query
     strsql = text(
-        """delete from handmatige_aanpassingen.handmatige_aanpassingen_kalibratie 
+        f"""delete from handmatige_aanpassingen.{tbl} 
                 where well_id=:v"""
     )
     strsql = strsql.bindparams(v="dummy")
     with engine.connect() as conn:
         conn.execute(strsql)
-
+    return tbl
 
 # step 1 load the data
+# please set the if_exists option in a correct way, default is replace!, options are fail, replace or append
 xlsx = r"C:\projectinfo\nl\NOBV\data\SOMERS_DATA\handmatige_aanpassingen_kalibratie_v30-7-24_V2.xlsx"
-loadexpertjudgementdata(xlsx)
+tbl = loadexpertjudgementdata(xlsx, ifexists='replace')
 
 # step 2 ETL that gets the data from mastermetadata and overwrites the harvested data
 # with the expert judgment data
 # so metadata_ongecontroleerd.kalibratie combined to metadata_gecontroleerd.kalibratie + expert judgement data
+
+
+# create new table in schema metadata_gecontroleerd
+# create table
+nwtbl = "metadata_gecontroleerd.kalibratie"
+strsql = f"""drop table if exists {nwtbl}; """
+engine.execute(strsql)
+
+dctcolumns = tablesetup()
+create_location_metadatatable(cf, nwtbl, dctcolumns)
+
+# load the data that need to be checked/improved by handmatige data
+untbl = "metadata_ongecontroleerd.kalibratie"
+dfo = pd.read_sql(f'select * from {untbl}', engine)
+lstcols = 
+for index, row in dfo.iterrows():
+    well_id = row['well_id']
+    for c in range(len(row)):
+        if row[c] is not 'well_id':
+            print(row[c])
+
+for i in dfo.itertuples():
+    print(i)
 
 # todo make sure the last entered opbject is the final change.
 """select well_id, max(parcel_width_m),max(distance_to_ditch_m), max(changedate) from handmatige_aanpassingen.handmatige_aanpassingen_kalibratie
