@@ -58,23 +58,26 @@ with engine.connect() as conn:
 # because we need a clear defined table (dataformats), the first record is a dummy record with specified
 # dataformats that will retrieved by the pd.read_excel function
 xlsx = r"C:\projectinfo\nl\NOBV\data\SOMERS_DATA\handmatige_aanpassingen_kalibratie_v30-7-24_V2.xlsx"
-df = pd.read_excel(xlsx, parse_dates=True)
-df.to_sql(
-    "handmatige_aanpassingen_kalibratie",
-    engine,
-    schema=schema,
-    index=False,
-    if_exists="append",
-)
 
-# this first record will be removed with following query
-strsql = text(
-    """delete from handmatige_aanpassingen.handmatige_aanpassingen_kalibratie 
-              where well_id=:v"""
-)
-strsql = strsql.bindparams(v="dummy")
-with engine.connect() as conn:
-    res = conn.execute(strsql)
+
+def loadexpertjudgementdata(xlsx):
+    df = pd.read_excel(xlsx, parse_dates=True)
+    df.to_sql(
+        "handmatige_aanpassingen_kalibratie",
+        engine,
+        schema=schema,
+        index=False,
+        if_exists="append",
+    )
+
+    # this first record will be removed with following query
+    strsql = text(
+        """delete from handmatige_aanpassingen.handmatige_aanpassingen_kalibratie 
+                where well_id=:v"""
+    )
+    strsql = strsql.bindparams(v="dummy")
+    with engine.connect() as conn:
+        conn.execute(strsql)
 
 
 # step 1 load the data
