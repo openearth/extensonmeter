@@ -56,10 +56,11 @@ strsql = """CREATE SCHEMA IF NOT EXISTS handmatige_aanpassingen"""
 with engine.connect() as conn:
     res = conn.execute(strsql)
 
+
 # because we need a clear defined table (dataformats), the first record is a dummy record with specified
 # dataformats that will retrieved by the pd.read_excel function
-def loadexpertjudgementdata(xlsx,ifexists):
-    """Loads the provided expert data. The setup is expect to be exactly the same as 
+def loadexpertjudgementdata(xlsx, ifexists):
+    """Loads the provided expert data. The setup is expect to be exactly the same as
        the data in metadata_ongecontroleerd.kalibratie
 
     Args:
@@ -68,7 +69,7 @@ def loadexpertjudgementdata(xlsx,ifexists):
         metatable (string): schema.table name with metadata for each location
 
     Returns:
-        ...    
+        ...
     """
     tbl = "handmatige_aanpassingen_kalibratie"
     df = pd.read_excel(xlsx, parse_dates=True)
@@ -90,18 +91,44 @@ def loadexpertjudgementdata(xlsx,ifexists):
         conn.execute(strsql)
     return tbl
 
+
+# todo make sure the last entered opbject is the final change.
+"""select well_id, max(parcel_width_m),max(distance_to_ditch_m), max(changedate) from handmatige_aanpassingen.handmatige_aanpassingen_kalibratie
+where well_id = 'nobv_3'
+group by well_id"""
+
+
+def checkval(tbl, well_id, column):
+    """Function that checks retrieves the value from specified column and tbl
+       using well_id as primary key
+
+    Args: tbl     (string): reference to table (check schmema!)
+          well_id (String): unique id of the location with possible data to be retrieved
+          column  (String): columnname
+    Return: val (*)       : any value in any data type, None by default if nothting manual has been filled
+    """
+    val = None
+    try:
+        strsql = f"""select {column} from {schema}.{tbl} where well_id = '{well_id}'"""
+        res = engine.execute(strsql).fetchall()
+        val = res[0][0]
+    except:
+        val = None
+    finally:
+        return val
+
+
 # step 1 load the data
-# please set the if_exists option in a correct way, default is replace!, options are fail, replace or append
-xlsx = r"C:\projectinfo\nl\NOBV\data\SOMERS_DATA\handmatige_aanpassingen_kalibratie_v30-7-24_V2.xlsx"
-tbl = loadexpertjudgementdata(xlsx, ifexists='replace')
-
-# step 2 ETL that gets the data from mastermetadata and overwrites the harvested data
-# with the expert judgment data
-# so metadata_ongecontroleerd.kalibratie combined to metadata_gecontroleerd.kalibratie + expert judgement data
-
+# please set the if_exists option in a correct way,
+# default is replace!, options are fail, replace or append
+# !!!! IT IS EXPECTED TO HAVE A RECORD WHERE WELL_ID = dummy with for every column a value that
+# reflects the datatype, because null is not a very good data type
+xlsx = r"C:\projectinfo\nl\NOBV\data\SOMERS_DATA\handmatige_aanpassingen_kalibratie_v8-8-24.xlsx"
+tbl = loadexpertjudgementdata(xlsx, ifexists="replace")
+tbl = "handmatige_aanpassingen_kalibratie"
+# next version should have append.... so version control is implemented
 
 # create new table in schema metadata_gecontroleerd
-# create table
 nwtbl = "metadata_gecontroleerd.kalibratie"
 strsql = f"""drop table if exists {nwtbl}; """
 engine.execute(strsql)
@@ -111,18 +138,52 @@ create_location_metadatatable(cf, nwtbl, dctcolumns)
 
 # load the data that need to be checked/improved by handmatige data
 untbl = "metadata_ongecontroleerd.kalibratie"
-dfo = pd.read_sql(f'select * from {untbl}', engine)
-lstcols = 
+
+# following lines loop over de various records over the columns and check column wise if there
+# is data in the manual table. The basis of the columns is defined in tablesetup in db_helpers!!
+# important to realise is that if there is data in the expert judgement data that is not defined in a column
+# in db_helpers (tablesetup), it will simply not be used in the checked table
+dfo = pd.read_sql(f"select * from {untbl}", engine)
+lstcols = list(dfo)
 for index, row in dfo.iterrows():
-    well_id = row['well_id']
-    for c in range(len(row)):
-        if row[c] is not 'well_id':
-            print(row[c])
+    well_id = row["well_id"]
+    for c in lstcols:
+        if c not in ("well_id", "source", "geometry"):
+            hmval = checkval(tbl, well_id, c)
+            print(c, row[c], hmval)
+            val = row[c]
+            if hmval != None:
+                val = hmval
+            if str(val) == "nan" or str(val) == "[nan]":
+                val = "null"
+            if val is None:
+                val = "null"
+            if dctcolumns[c] == "text":
+                strsql = f"""insert into {nwtbl} (well_id, {c}) 
+                            VALUES ('{well_id}','{val}')
+                            ON CONFLICT(well_id)
+                            DO UPDATE SET
+                            {c} = '{val}'"""
+            elif dctcolumns[c] == "double precision[]":
+                val = str(val).replace("[", "").replace("]", "").split(",")
+                if len(val) == 1:
+                    vls_dbl = "{" + str(val[0]) + "}"
+                else:
+                    vls_dbl = (
+                        str(tuple([float(item) for item in val]))
+                        .replace("(", "{")
+                        .replace(")", "}")
+                    )
+                strsql = f"""insert into {nwtbl} (well_id, {c}) 
+                            VALUES ('{well_id}','{vls_dbl}')
+                            ON CONFLICT(well_id)
+                            DO UPDATE SET
+                            {c} = '{vls_dbl}'"""
+            else:
+                strsql = f"""insert into {nwtbl} (well_id, {c}) 
+                            VALUES ('{well_id}',{val})
+                            ON CONFLICT(well_id)
+                            DO UPDATE SET
+                            {c} = {val}"""
 
-for i in dfo.itertuples():
-    print(i)
-
-# todo make sure the last entered opbject is the final change.
-"""select well_id, max(parcel_width_m),max(distance_to_ditch_m), max(changedate) from handmatige_aanpassingen.handmatige_aanpassingen_kalibratie
-where well_id = 'nobv_3'
-group by well_id"""
+            engine.execute(strsql)
