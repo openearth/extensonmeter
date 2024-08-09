@@ -28,9 +28,6 @@
 # aim is to overwrite harvested data with expert judgement data for each record and each
 # column
 
-# import math
-import time
-
 # import StringIO
 import os
 import pandas as pd
