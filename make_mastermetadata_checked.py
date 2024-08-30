@@ -121,6 +121,7 @@ def checkval(tbl, well_id, column):
 # !!!! IT IS EXPECTED TO HAVE A RECORD WHERE WELL_ID = dummy with for every column a value that
 # reflects the datatype, because null is not a very good data type
 xlsx = r"C:\projectinfo\nl\NOBV\data\SOMERS_DATA\handmatige_aanpassingen_kalibratie_v8-8-24.xlsx"
+xlsx = r"P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_aanpassingen\handmatige_aanpassingen_kalibratie_v14-8-24.xlsx"
 tbl = loadexpertjudgementdata(xlsx, ifexists="replace")
 tbl = "handmatige_aanpassingen_kalibratie"
 # next version should have append.... so version control is implemented
@@ -140,7 +141,7 @@ untbl = "metadata_ongecontroleerd.kalibratie"
 # is data in the manual table. The basis of the columns is defined in tablesetup in db_helpers!!
 # important to realise is that if there is data in the expert judgement data that is not defined in a column
 # in db_helpers (tablesetup), it will simply not be used in the checked table
-dfo = pd.read_sql(f"select * from {untbl}", engine)
+dfo = pd.read_sql(f"select * from {untbl} where selection = 'yes'", engine)
 lstcols = list(dfo)
 for index, row in dfo.iterrows():
     well_id = row["well_id"]

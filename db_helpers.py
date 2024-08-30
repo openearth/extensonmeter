@@ -41,7 +41,7 @@ def tablesetup():
     dctcolumns["well_id"] = "text"
     dctcolumns["aan_id"] = "integer"
     dctcolumns["name"] = "text"
-    dctcolumns["transect"] = "text"
+    dctcolumns["transect"] = "integer"
     dctcolumns["parcel_type"] = "text"  # is er een maatregel ja/nee (standaard is ref)
     dctcolumns["ditch_id"] = "text"
     dctcolumns["ditch_name"] = "text"
