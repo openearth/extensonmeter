@@ -32,6 +32,7 @@ Created on Thu Jan  7 14:49:58 2021
 # your own tools.
 
 from ts_helpers.ts_helpers import establishconnection, testconnection
+from sqlalchemy import text
 
 
 # setup of location_metadata table
@@ -92,7 +93,9 @@ def preptable(engine, tbl, columname, datatype):
     """
     try:
         strsql = f"ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS {columname} {datatype}"
-        engine.execute(strsql)
+        with engine.connect() as conn:
+            conn.execute(text(strsql))
+            conn.commit()
     except Exception as e:
         print("following exception raised", e)
     finally:
@@ -112,7 +115,9 @@ def create_location_metadatatable(cf, tbl, dctcolumns):
     try:
         nwtbl = tbl
         strsql = f"create table if not exists {nwtbl} (well_id text primary key)"
-        engine.execute(strsql)
+        with engine.connect() as conn:
+            conn.execute(text(strsql))
+            conn.commit()
         for columname in dctcolumns.keys():
             preptable(engine, nwtbl, columname, dctcolumns[columname])
     except Exception as e:

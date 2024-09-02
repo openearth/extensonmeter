@@ -38,7 +38,7 @@ import datetime
 
 # third party modules
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import create_engine, func, update, insert
+from sqlalchemy import create_engine, func, update, insert, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import Boolean, Integer, Float, DateTime, String, Text
 from geoalchemy2 import Geometry
@@ -94,10 +94,11 @@ def testconnection(engine):
     Returns:
         Boolean: True if a test is succesfull
     """
-    strsql = "SELECT 1"
+    strsql = "SELECT * FROM pg_settings WHERE name = 'port';"
     a = True
     try:
-        engine.execute(strsql)
+        with engine.connect() as conn:
+            conn.execute(text(strsql))
     except Exception:
         print("database not working")
         a = False
