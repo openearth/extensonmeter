@@ -257,7 +257,7 @@ for tbl in dcttable.keys():
 # %%
 # !!!! query does not work inside of python, but does work in pg admin. Run this part in PG admin
 strsql = f"""WITH updated_values AS (
-    SELECT DISTINCT ON (l.source) 
+    SELECT DISTINCT ON (l.well_id) 
         l.well_id AS all_source, 
         swm.source AS swm_source,
         swm.name as ditch_name
