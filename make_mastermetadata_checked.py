@@ -79,11 +79,8 @@ def loadexpertjudgementdata(xlsx, ifexists):
     )
 
     # this first record will be removed with following query
-    strsql = text(
-        f"""delete from handmatige_aanpassingen.{tbl} 
-                where well_id=:v"""
-    )
-    strsql = strsql.bindparams(v="dummy")
+    strsql = f"""delete from handmatige_aanpassingen.{tbl} 
+                where well_id='dummy'"""
     with engine.connect() as conn:
         conn.execute(text(strsql))
     return tbl
