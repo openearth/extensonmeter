@@ -307,7 +307,7 @@ print("created table kalibratie, validatie")
 # bear in mind ownership of the tables
 # does not work inside python and needs to be done in pgadmin
 user = "hendrik_gt"
-strsql = f"reassing owned by {user} to qsomers"
+strsql = f"reassign owned by {user} to qsomers"
 with engine.connect() as conn:
     conn.execute(text(strsql))
     conn.commit()

@@ -51,7 +51,7 @@ if not testconnection(engine):
 schema = "handmatige_aanpassingen"
 strsql = """CREATE SCHEMA IF NOT EXISTS handmatige_aanpassingen"""
 with engine.connect() as conn:
-    res = conn.execute(strsql)
+    res = conn.execute(text(strsql))
 
 
 # because we need a clear defined table (dataformats), the first record is a dummy record with specified
@@ -85,7 +85,7 @@ def loadexpertjudgementdata(xlsx, ifexists):
     )
     strsql = strsql.bindparams(v="dummy")
     with engine.connect() as conn:
-        conn.execute(strsql)
+        conn.execute(text(strsql))
     return tbl
 
 
@@ -107,8 +107,9 @@ def checkval(tbl, well_id, column):
     val = None
     try:
         strsql = f"""select {column} from {schema}.{tbl} where well_id = '{well_id}'"""
-        res = engine.execute(strsql).fetchall()
-        val = res[0][0]
+        with engine.connect() as conn:
+            res = conn.execute(strsql).fetchall()
+            val = res[0][0]
     except:
         val = None
     finally:
@@ -129,7 +130,8 @@ tbl = "handmatige_aanpassingen_kalibratie"
 # create new table in schema metadata_gecontroleerd
 nwtbl = "metadata_gecontroleerd.kalibratie"
 strsql = f"""drop table if exists {nwtbl}; """
-engine.execute(strsql)
+with engine.connect() as conn:
+    conn.execute(text(strsql))
 
 dctcolumns = tablesetup()
 create_location_metadatatable(cf, nwtbl, dctcolumns)
@@ -184,4 +186,5 @@ for index, row in dfo.iterrows():
                             DO UPDATE SET
                             {c} = {val}"""
 
-            engine.execute(strsql)
+            with engine.connect() as conn:
+                conn.execute(text(strsql))
