@@ -68,7 +68,8 @@ def loadexpertjudgementdata(xlsx, ifexists):
     Returns:
         ...
     """
-    tbl = "handmatige_aanpassingen_kalibratie"
+    schema = "handmatige_aanpassingen"
+    tbl = "kalibratie"
     df = pd.read_excel(xlsx, parse_dates=True)
     df.to_sql(
         tbl,
@@ -79,7 +80,7 @@ def loadexpertjudgementdata(xlsx, ifexists):
     )
 
     # this first record will be removed with following query
-    strsql = f"""delete from handmatige_aanpassingen.{tbl} 
+    strsql = f"""delete from {schema}.{tbl} 
                 where well_id='dummy'"""
     with engine.connect() as conn:
         conn.execute(text(strsql))
@@ -103,9 +104,9 @@ def checkval(tbl, well_id, column):
     """
     val = None
     try:
-        strsql = f"""select {column} from {schema}.{tbl} where well_id = '{well_id}'"""
+        strsql = f"""select {column} from {tbl} where well_id = '{well_id}'"""
         with engine.connect() as conn:
-            res = conn.execute(strsql).fetchall()
+            res = conn.execute(text(strsql)).fetchall()
             val = res[0][0]
     except:
         val = None
@@ -121,7 +122,7 @@ def checkval(tbl, well_id, column):
 xlsx = r"C:\projectinfo\nl\NOBV\data\SOMERS_DATA\handmatige_aanpassingen_kalibratie_v8-8-24.xlsx"
 xlsx = r"P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_aanpassingen\handmatige_aanpassingen_kalibratie_v14-8-24.xlsx"
 tbl = loadexpertjudgementdata(xlsx, ifexists="replace")
-tbl = "handmatige_aanpassingen_kalibratie"
+tbl = "handmatige_aanpassingen.kalibratie"
 # next version should have append.... so version control is implemented
 
 # create new table in schema metadata_gecontroleerd
@@ -129,26 +130,39 @@ nwtbl = "metadata_gecontroleerd.kalibratie"
 strsql = f"""drop table if exists {nwtbl}; """
 with engine.connect() as conn:
     conn.execute(text(strsql))
-
-dctcolumns = tablesetup()
-create_location_metadatatable(cf, nwtbl, dctcolumns)
+    conn.commit()
 
 # load the data that need to be checked/improved by handmatige data
 untbl = "metadata_ongecontroleerd.kalibratie"
+
+# make a copy from metadata_ongecontroleerd.kalibratie with selection = yes
+
+# create_location_metadatatable(cf, nwtbl, dctcolumns)
+strsql = f"create table {nwtbl} as select * from {untbl} where selection = 'yes'"
+with engine.connect() as conn:
+    conn.execute(text(strsql))
+    conn.commit()
+# in order to do updates a unique constraint needs to be set
+strsql = f"ALTER TABLE {nwtbl} ADD CONSTRAINT unique_well UNIQUE (well_id);"
+with engine.connect() as conn:
+    conn.execute(text(strsql))
+    conn.commit()
+
 
 # following lines loop over de various records over the columns and check column wise if there
 # is data in the manual table. The basis of the columns is defined in tablesetup in db_helpers!!
 # important to realise is that if there is data in the expert judgement data that is not defined in a column
 # in db_helpers (tablesetup), it will simply not be used in the checked table
+dctcolumns = tablesetup()
 dfo = pd.read_sql(f"select * from {untbl} where selection = 'yes'", engine)
 lstcols = list(dfo)
 for index, row in dfo.iterrows():
     well_id = row["well_id"]
     for c in lstcols:
-        if c not in ("well_id", "source", "geometry"):
+        if c not in ("well_id", "geometry"):
             hmval = checkval(tbl, well_id, c)
-            print(c, row[c], hmval)
             val = row[c]
+            print(well_id, c, row[c], hmval)
             if hmval != None:
                 val = hmval
             if str(val) == "nan" or str(val) == "[nan]":
@@ -182,6 +196,12 @@ for index, row in dfo.iterrows():
                             ON CONFLICT(well_id)
                             DO UPDATE SET
                             {c} = {val}"""
-
             with engine.connect() as conn:
                 conn.execute(text(strsql))
+                conn.commit()
+
+user = "hendrik_gt"
+strsql = f"reassign owned by {user} to qsomers"
+with engine.connect() as conn:
+    conn.execute(text(strsql))
+    conn.commit()
