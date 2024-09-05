@@ -215,12 +215,12 @@ path_2 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvra
 path_3 = r"P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\HDSR\geschikte_data"
 path_4 = r"P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\AGV\bewerkt"  # gebruikt spaties als sep in de GWM maar niet in de SWM
 path_5 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\HunzeenAas\bewerkt' #datum tijd notatie klopt nog niet
-path_6 = r"P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Wetterskip\SWM" 
+path_6 = r"P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Wetterskip\bewerkt" 
 path_7 = r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\HHSK\bewerkt' # (string replace has to be on to work with this data)
 
 # Create a list of paths
-paths = [path_7]
-wb_name = 'HHSK' #sorry, this is a manual change as you have to tick the paths induvially to check for errors..
+paths = [path_6]
+wb_name = 'Wetterskip' #sorry, this is a manual change as you have to tick the paths induvially to check for errors..
 
 # assigning parameters, either grondwaterstand or slootwaterpeil
 # zoetwaterstijghoogtes
@@ -275,7 +275,7 @@ for root in paths:
                 ]  # find in name it is GWM or SWM
                 nrrows, colnames, xycols, datum = skiprows(os.path.join(root, file))
                 y = find_if_stored(name)
-                # print(y)
+                print(y)
 
                 if y == False:
                     x = find_locationkey()
@@ -368,21 +368,19 @@ for root in paths:
                     # print(duplicate_rows)
                     dfx = dfx.drop_duplicates()
                     print(r, skeyz)
-                    try: 
-                        if r != dfx["datetime"].iloc[-1]:
-                            dfx["timeserieskey"] = skeyz
-                            dfx["flags"] = flag
-                            dfx.to_sql(
-                                "timeseriesvaluesandflags",
-                                engine,
-                                index=False,
-                                if_exists="append",
-                                schema="waterschappen_timeseries",
-                            )
-                        else:
-                            print("not updating")
-                    except:
-                        print('empty df')
+                    if r != dfx["datetime"].iloc[-1]:
+                        print('yes')
+                        dfx["timeserieskey"] = skeyz
+                        dfx["flags"] = flag
+                        dfx.to_sql(
+                            "timeseriesvaluesandflags",
+                            engine,
+                            index=False,
+                            if_exists="append",
+                            schema="waterschappen_timeseries",
+                        )
+                    else:
+                        print("not updating")
 
                 elif data == "GWM":
                     df = extract_info_from_text_file(os.path.join(root, file))
@@ -404,6 +402,7 @@ for root in paths:
                     locationtable["epsgcode"] = 28992
                     locationtable["filesourcekey"] = fskey[0][0]
                     locationtable['name'] = str(wb_name)+'_' + locationtable['name'].astype(str)
+                    print('here now')
 
                     if y == False:
                         locationtable.to_sql(
@@ -481,7 +480,7 @@ for root in paths:
                             dfx["datetime"] = pd.to_datetime(
                                 dfx["datetime"], format="%d-%m-%Y %H:%M"
                             )
-                    # dfx['scalarvalue'] = dfx['scalarvalue'].str.replace(",", ".")
+                    dfx['scalarvalue'] = dfx['scalarvalue'].str.replace(",", ".")
                     dfx["scalarvalue"] = dfx["scalarvalue"].astype("float64")
                     dfx = dfx.dropna()
 
@@ -492,22 +491,19 @@ for root in paths:
                     dfx.sort_values(by=["datetime"], inplace=True)
 
                     print(r, skeyz)
-                    
-                    try:
-                        if r != dfx["datetime"].iloc[-1]:
-                            dfx["timeserieskey"] = skeyz
-                            dfx["flags"] = flag
-                            dfx.to_sql(
-                                "timeseriesvaluesandflags",
-                                engine,
-                                index=False,
-                                if_exists="append",
-                                schema="waterschappen_timeseries",
-                            )
-                        else:
-                            print("not updating")
-                    except:
-                        print('empty df')
+                    print('updating')
+                    if r != dfx["datetime"].iloc[-1]:
+                        dfx["timeserieskey"] = skeyz
+                        dfx["flags"] = flag
+                        dfx.to_sql(
+                            "timeseriesvaluesandflags",
+                            engine,
+                            index=False,
+                            if_exists="append",
+                            schema="waterschappen_timeseries",
+                        )
+                    else:
+                        print("not updating:", r, dfx['datetime'].iloc[-1])
 
                 else:
                     print("NOT SWM or GWM:", name)
@@ -538,16 +534,18 @@ for root in paths:
 #     engine.execute(strsql)
 
 
-# #%% updating the description in the location table
+ #%% updating the description in the location table
 # df = pd.read_excel(r'P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_uitvraag_bestanden\Wetterskip\240703 Export_meetpunten_VW_monitoring.xlsx', skiprows=1)
 # cols = ['# naam_meetpunt','maatregel' ]
 # df = df[cols]
 # df = df.drop(120)
+# df['# naam_meetpunt'] = 'Wetterskip_' + df['# naam_meetpunt']
 
 # nwtbl = 'waterschappen_timeseries.location'
 
 # for index, row in df.iterrows():
 #     lockey = find_if_stored(row[0])
+#     print(lockey)
 
 #     if lockey[1] == True:
 #         print(lockey)
