@@ -119,8 +119,8 @@ def checkval(tbl, well_id, column):
 # default is replace!, options are fail, replace or append
 # !!!! IT IS EXPECTED TO HAVE A RECORD WHERE WELL_ID = dummy with for every column a value that
 # reflects the datatype, because null is not a very good data type
-xlsx = r"C:\projectinfo\nl\NOBV\data\SOMERS_DATA\handmatige_aanpassingen_kalibratie_v8-8-24.xlsx"
-xlsx = r"P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_aanpassingen\handmatige_aanpassingen_kalibratie_v14-8-24.xlsx"
+xlsx = r"P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_aanpassingen\handmatige_aanpassingen_kalibratie_v5-9-24.xlsx"
+xlsx = r"P:\11207812-somers-ontwikkeling\database_grondwater\handmatige_aanpassingen\handmatige_aanpassingen_kalibratie_v20-9-24.xlsx"
 tbl = loadexpertjudgementdata(xlsx, ifexists="replace")
 tbl = "handmatige_aanpassingen.kalibratie"
 # next version should have append.... so version control is implemented
